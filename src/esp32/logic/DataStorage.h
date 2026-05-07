@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 #include "../utils/CircularQueue.h"
-#include "../hardware/Accelerometer.h"
+#include "../hardwareParts/Accelerometer.h"
 #include "../config/Constants.h"
 
 class DataStorage {

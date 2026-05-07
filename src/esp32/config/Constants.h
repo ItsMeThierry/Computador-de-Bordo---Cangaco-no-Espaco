@@ -73,5 +73,6 @@ constexpr int PIN_LORA_RX = 14;   // TX do módulo → RX do ESP
 constexpr int PIN_LORA_TX = 12;   // RX do módulo → TX do ESP (strapping!)
 constexpr int PIN_LORA_M0 = 32;
 constexpr int PIN_LORA_M1 = 33;
+constexpr int PIN_LORA_AUX = 34;
 
 #endif

@@ -2,8 +2,8 @@
 #define DATA_LOGGER_H
 
 #include <Arduino.h>
-#include "../hardware/SDCard.h"
-#include "../hardware/Accelerometer.h"
+#include "../hardwareParts/SDCard.h"
+#include "../hardwareParts/Accelerometer.h"
 #include "../logic/FlightStateMachine.h"
 #include "../utils/Timer.h"
 #include "../utils/FlightStateUtils.h"

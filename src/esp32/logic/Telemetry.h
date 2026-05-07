@@ -2,8 +2,8 @@
 #define TELEMETRY_H
 
 #include <Arduino.h>
-#include "../hardware/LoRaRadio.h"
-#include "../hardware/GPSSensor.h"
+#include "../hardwareParts/LoRaRadio.h"
+#include "../hardwareParts/GPS.h"
 #include "../logic/FlightStateMachine.h"
 #include "../utils/Timer.h"
 #include "../utils/FlightStateUtils.h"

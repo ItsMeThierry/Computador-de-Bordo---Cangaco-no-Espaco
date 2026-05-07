@@ -2,7 +2,7 @@
 #define GPS_SENSOR_H
 
 #include <Arduino.h>
-#include <TinyGPS++.h>
+//#include <TinyGPS++.h>
 
 struct GPSData {
     double latitude;
@@ -23,7 +23,7 @@ public:
 
 private:
     int _rxPin, _txPin;
-    TinyGPSPlus _gps;
+    //TinyGPSPlus _gps;
     GPSData _latestData;
     unsigned long _lastValidTime;
 

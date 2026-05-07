@@ -2,7 +2,7 @@
 #define RECOVERY_SYSTEM_H
 
 #include <Arduino.h>
-#include "../hardware/Buzzer.h"
+#include "../hardwareParts/Buzzer.h"
 
 class RecoverySystem {
 public:
