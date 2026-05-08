@@ -46,6 +46,9 @@ public:
             return false;
         }
 
+        // Abordagem segura: open→write→flush→close a cada gravação (~3-10ms)
+        // Possível mudança futura: manter arquivo aberto e fazer apenas flush (~1-5ms)
+        // _logFile.println(line); _logFile.flush(); — sem open/close por chamada
         _logFile = SD.open(_currentFileName, FILE_APPEND);
         if (!_logFile) {
             Serial.println(F("[SDCard] Erro ao abrir arquivo para escrita"));
