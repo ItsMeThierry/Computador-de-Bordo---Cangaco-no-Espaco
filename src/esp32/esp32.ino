@@ -18,31 +18,34 @@ void setup() {
     // Inicializar buzzer (configura canal LEDC)
     buzzer.begin();
 
-    // Inicializar SD Card
+    // Inicializar SD Card (não-crítico — EEPROM é o armazenamento primário)
     bool sdOk = sdCard.begin();
-
-    // Inicializar acelerômetro
-    bool accOk = MPU.begin();
-
-    if (!accOk) {
-        Serial.println(F("Erro: Acelerometro falhou"));
-        while(1);
-    }
-    Serial.println(F("Acelerometro ok!"));
-
     if (!sdOk) {
-        Serial.println(F("Erro: SD Card falhou"));
-        while(1);
+        Serial.println(F("AVISO: SD Card falhou — continuando sem gravação SD"));
+    } else {
+        Serial.println(F("SD Card ok!"));
     }
-    Serial.println(F("SD Card ok!"));
+
+    // Inicializar acelerômetro (não-crítico — dados complementares)
+    bool accOk = MPU.begin();
+    if (!accOk) {
+        Serial.println(F("AVISO: Acelerometro falhou — continuando sem dados de aceleração"));
+    } else {
+        Serial.println(F("Acelerometro ok!"));
+    }
+
+    // TODO: Inicializar altímetro (CRÍTICO — único sensor que bloqueia o sistema)
 
     Serial.println(F("Sistema pronto!"));
-
 }
 
 // ===== LOOP PRINCIPAL =====
 void loop() {
-    AccelData mpuData= MPU.readAcceleration();
+    AccelData mpuData = MPU.readAcceleration();
 
     MPU.printData(mpuData);
+
+    // Atualizar buzzer (gerencia beep pattern não-bloqueante)
+    buzzer.update();
 }
+
