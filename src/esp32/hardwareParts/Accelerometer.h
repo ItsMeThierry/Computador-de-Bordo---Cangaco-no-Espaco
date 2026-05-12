@@ -6,6 +6,7 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
+// Estrutura de dados para o acelerômetro
 struct AccelData {
     float accX;
     float accY;
@@ -21,6 +22,8 @@ class Accelerometer {
 public:
     Accelerometer() {}
     
+    // Inicia o acelerômetro e define as configurações do mesmo
+    // Retorna true se a inicialização foi bem sucedida
     bool begin() {
         if (!_mpu.begin()) {
             return false;
@@ -31,6 +34,7 @@ public:
         return true;
     }
     
+    // Retorna os dados obtidos do acelerômetro
     AccelData readAcceleration() {
         sensors_event_t acc, gyr, temp;
         bool isEventValid = _mpu.getEvent(&acc, &gyr, &temp);
@@ -48,6 +52,8 @@ public:
         return accData;
     }
 
+    // Exibe os dados de um AccelData
+    // Debug apenas
     void printData(AccelData &data) {
         Serial.print("X: "); Serial.print(data.accX);
         Serial.print(", Y: "); Serial.print(data.accY);

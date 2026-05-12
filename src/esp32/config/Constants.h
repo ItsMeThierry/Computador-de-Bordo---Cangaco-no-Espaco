@@ -64,13 +64,12 @@ constexpr int PIN_I2C_SDA = 21;
 constexpr int PIN_I2C_SCL = 22;
 
 // GPS (UART2)
-constexpr int PIN_GPS_RX = 16;
-constexpr int PIN_GPS_TX = 17;
+constexpr int PIN_GPS_RX = 16; // TODO: Rever pino do GPS
+constexpr int PIN_GPS_TX = 17; // TODO: Rever pino do GPS
 
 // LoRa E220 (UART1)
-// ATENÇÃO: GPIO12 (PIN_LORA_RX) é pino strapping — pull-down 10kΩ obrigatório
-constexpr int PIN_LORA_RX = 14;   // TX do módulo → RX do ESP
-constexpr int PIN_LORA_TX = 12;   // RX do módulo → TX do ESP (strapping!)
+constexpr int PIN_LORA_RX = 16;   // TX do módulo → RX do ESP
+constexpr int PIN_LORA_TX = 17;   // RX do módulo → TX do ESP
 constexpr int PIN_LORA_M0 = 32;
 constexpr int PIN_LORA_M1 = 33;
 constexpr int PIN_LORA_AUX = 34;

@@ -22,8 +22,7 @@ public:
 
     // Configura canal LEDC e anexa o pino do buzzer
     void begin() {
-        ledcSetup(_channel, 2000, BUZZER_LEDC_RESOLUTION);  // Frequência inicial placeholder
-        ledcAttachPin(_pin, _channel);
+        ledcAttach(_pin, 2000, BUZZER_LEDC_RESOLUTION);
         _stopTone();  // Garante buzzer desligado ao iniciar
     }
 
@@ -58,7 +57,7 @@ public:
 
         // Prioridade máxima: buzzer de emergência (SKIB — 4s contínuos)
         if (_emergencyActive) {
-            if (now >= _emergencyEndTime) {
+            if (now >= _emergencyEndTime) {     //TODO: Atualizar a lógica de tempo do buzzer utilizando Timer.h
                 _emergencyActive = false;
                 _stopTone();
                 // Resetar temporização do beep pattern para transição suave
@@ -75,14 +74,14 @@ public:
 
         if (!_isBeeping) {
             // Tempo desde o último beep >= período → iniciar novo beep
-            if (now - _lastBeepStart >= _beepPeriod) {
+            if (now - (_lastBeepStart + _beepDuration) >= _beepPeriod) {      //TODO: Atualizar a lógica de tempo do buzzer utilizando Timer.h
                 _startTone(_beepFreq);
                 _lastBeepStart = now;
                 _isBeeping = true;
             }
         } else {
             // Beep ativo — verificar se duração expirou
-            if (now - _lastBeepStart >= _beepDuration) {
+            if (now - _lastBeepStart >= _beepDuration) {    //TODO: Atualizar a lógica de tempo do buzzer utilizando Timer.h
                 _stopTone();
                 _isBeeping = false;
             }
@@ -115,12 +114,12 @@ private:
 
     // Inicia tom na frequência especificada via LEDC
     void _startTone(unsigned int freq) {
-        ledcWriteTone(_channel, freq);
+        ledcWriteTone(_pin, freq);
     }
 
     // Para o tom — duty cycle zero
     void _stopTone() {
-        ledcWriteTone(_channel, 0);
+        ledcWriteTone(_pin, 0);
     }
 };
 
