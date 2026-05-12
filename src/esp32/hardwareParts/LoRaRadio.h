@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <EBYTE.h>
 
+// Estrutura de dados do payload do LoRa
 struct LoRaPayload {
     String message;
     unsigned long time;
@@ -19,6 +20,8 @@ public:
           _auxPin(auxPin),
           _lora(&Serial1, m0Pin, m1Pin, auxPin) {}
 
+    // Inicializa e configura o módulo LoRa com parâmetros específicos para comunicação;
+    // Exige um "baudrate" para configurar as portas RX e TX
     void begin(int baudrate) {
         Serial2.begin(baudrate, SERIAL_8N1, _rxPin, _txPin);
 
@@ -38,10 +41,12 @@ public:
         //_lora.SetMode(MODE_NORMAL); 
     }
     
+    // Eniva o payload de dados da mensagem
     bool transmit(const LoRaPayload& payload) {
         _lora.SendStruct(&payload, sizeof(payload));
     }
 
+    // Verifica se o LoRa está inicializado
     bool isReady() const {
         return _initialized;
     }
@@ -50,6 +55,8 @@ private:
     int _rxPin, _txPin, _m0Pin, _m1Pin, _auxPin;
     EBYTE _lora;
     bool _initialized;
+
+    // void _setMode(uint8_t m0, uint8_t m1) {}
 };
 
 #endif
