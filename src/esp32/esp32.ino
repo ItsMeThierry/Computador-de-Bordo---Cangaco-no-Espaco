@@ -3,6 +3,7 @@
 #include "hardwareParts/Buzzer.h"
 //#include "hardwareParts/SDCard.h"
 #include "hardwareParts/LoRaRadio.h"
+#include "hardwareparts/GPS.h"
 
 //Instanciando os objetos das classes no Hardware
 Accelerometer MPU;
@@ -10,6 +11,9 @@ Buzzer buzzer(PIN_BUZZER);
 //SDCard sdCard(PIN_SD_CS);
 LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
 LoRaPayload payload;
+
+// GPS NEO-6M
+GPSSensor gps(PIN_GPS_RX, PIN_GPS_TX);
 
 // ===== SETUP =====
 void setup() {
@@ -46,6 +50,10 @@ void setup() {
 
     // TODO: Inicializar altímetro (CRÍTICO — único sensor que bloqueia o sistema)
 
+    // Inicializar GPS
+    gps.begin(9600); // NEO-6M geralmente trabalha em 9600 baud
+
+
     Serial.println(F("Sistema pronto!"));
 }
 
@@ -59,10 +67,37 @@ void loop() {
     // buzzer.setBeepPattern(500, 400, 3136);
     // buzzer.update();
 
-    payload.message = "Olha a mensagem!";
-    payload.time = millis();
+    // Debug do GPS a cada 1 segundo
+    if (millis() - lastGpsPrint >= 1000) {
+        lastGpsPrint = millis();
 
-    lora.transmit(payload);
- 
+        if (gps.hasFix()) {
+            GPSData gpsData = gps.getLatestData();
+
+            Serial.println(F("===== GPS ====="));
+
+            Serial.print(F("Latitude: "));
+            Serial.println(gpsData.latitude, 6);
+
+            Serial.print(F("Longitude: "));
+            Serial.println(gpsData.longitude, 6);
+
+            Serial.print(F("Altitude: "));
+            Serial.print(gpsData.altitude);
+            Serial.println(F(" m"));
+
+            Serial.print(F("Velocidade: "));
+            Serial.print(gpsData.speed);
+            Serial.println(F(" km/h"));
+
+            Serial.print(F("Fix Quality: "));
+            Serial.println(gpsData.fixQuality);
+
+            Serial.println(F("================"));
+        } else {
+            Serial.println(F("GPS sem fix..."));
+        }
+    }
+
 }
 
