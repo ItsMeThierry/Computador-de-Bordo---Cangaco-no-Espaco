@@ -1,19 +1,20 @@
 #include "config/Constants.h"
-#include "hardwareParts/Accelerometer.h"
+//#include "hardwareParts/Accelerometer.h"
 #include "hardwareParts/Buzzer.h"
 //#include "hardwareParts/SDCard.h"
-#include "hardwareParts/LoRaRadio.h"
-#include "hardwareparts/GPS.h"
+//#include "hardwareParts/LoRaRadio.h"
+#include "hardwareParts/GPS.h"
 
 //Instanciando os objetos das classes no Hardware
-Accelerometer MPU;
+//Accelerometer MPU;
 Buzzer buzzer(PIN_BUZZER);
 //SDCard sdCard(PIN_SD_CS);
-LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
-LoRaPayload payload;
+//LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
+//LoRaPayload payload;
 
 // GPS NEO-6M
 GPSSensor gps(PIN_GPS_RX, PIN_GPS_TX);
+float lastGpsPrint;
 
 // ===== SETUP =====
 void setup() {
@@ -34,19 +35,19 @@ void setup() {
     // }
 
     // Inicializar acelerômetro (não-crítico — dados complementares)
-    bool accOk = MPU.begin();
-    if (!accOk) {
-        Serial.println(F("AVISO: Acelerometro falhou — continuando sem dados de aceleração"));
-    } else {
-        Serial.println(F("Acelerometro ok!"));
-    }
+    //bool accOk = MPU.begin();
+    //if (!accOk) {
+    //    Serial.println(F("AVISO: Acelerometro falhou — continuando sem dados de aceleração"));
+    //} else {
+    //    Serial.println(F("Acelerometro ok!"));
+    //}
 
-    lora.begin(9600);
-    if (!lora.isReady()) {
-        Serial.println(F("AVISO: LoRa falhou - continuando sem comunicação à base de lançamento"));
-    } else {
-        Serial.println(F("LoRa ok!"));
-    }
+    // lora.begin(9600);
+    // if (!lora.isReady()) {
+    //     Serial.println(F("AVISO: LoRa falhou - continuando sem comunicação à base de lançamento"));
+    // } else {
+    //     Serial.println(F("LoRa ok!"));
+    // }
 
     // TODO: Inicializar altímetro (CRÍTICO — único sensor que bloqueia o sistema)
 
@@ -68,6 +69,7 @@ void loop() {
     // buzzer.update();
 
     // Debug do GPS a cada 1 segundo
+    gps.update();
     if (millis() - lastGpsPrint >= 1000) {
         lastGpsPrint = millis();
 
