@@ -103,7 +103,7 @@ public:
 
 private:
     int _pin;
-    int _channel;
+    int _channel; // TODO: Talvez remover variável (Core 3.x não usa channel)
     unsigned long _beepPeriod;      // Intervalo entre beeps (ms)
     unsigned long _beepDuration;    // Duração de cada beep (ms)
     unsigned int _beepFreq;         // Frequência do beep (Hz)
