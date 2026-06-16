@@ -57,6 +57,12 @@ void setup() {
 
     // TODO: Inicializar altímetro (CRÍTICO — único sensor que bloqueia o sistema)
 
+    // TODO: Instanciar e inicializar DataLogger
+    // A assinatura do update() agora recebe GPS e pressão bruta:
+    //   double pressure = altimeter.readPressure();
+    //   GPSData gpsData = gps.getLatestData();
+    //   dataLogger.update(flightTime, smoothedAltitude, pressure, accel, gpsData, newState);
+
     // Inicializar GPS
     gps.begin(9600); // NEO-6M geralmente trabalha em 9600 baud
 
