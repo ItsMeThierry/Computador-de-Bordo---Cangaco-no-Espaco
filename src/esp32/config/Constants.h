@@ -64,8 +64,8 @@ constexpr int PIN_I2C_SDA = 21;
 constexpr int PIN_I2C_SCL = 22;
 
 // GPS (UART2)
-constexpr int PIN_GPS_RX = 16; // TODO: Rever pino do GPS
-constexpr int PIN_GPS_TX = 17; // TODO: Rever pino do GPS
+constexpr int PIN_GPS_RX = 36; // TODO: Rever pino do GPS
+constexpr int PIN_GPS_TX = 14; // TODO: Rever pino do GPS
 
 // LoRa E220 (UART1)
 constexpr int PIN_LORA_RX = 16;   // TX do módulo → RX do ESP

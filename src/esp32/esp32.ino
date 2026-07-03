@@ -1,16 +1,18 @@
 #include "config/Constants.h"
-//#include "hardwareParts/Accelerometer.h"
+#include "hardwareParts/Accelerometer.h"
 #include "hardwareParts/Buzzer.h"
-//#include "hardwareParts/SDCard.h"
-#include "hardwareParts/LoRaRadio.h"
-#include "hardwareparts/GPS.h"
+#include "hardwareParts/SDCard.h"
+//#include "hardwareParts/LoRaRadio.h"
+#include "hardwareParts/GPS.h"
+#include "hardwareParts/LED_RGB.h"
 
 //Instanciando os objetos das classes no Hardware
 Accelerometer MPU;
 Buzzer buzzer(PIN_BUZZER);
-//SDCard sdCard(PIN_SD_CS);
-LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
-LoRaPayload payload;
+SDCard sdCard(PIN_SD_CS);
+//LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
+//LoRaPayload payload;
+LED_RGB led(PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE);
 
 // GPS NEO-6M
 GPSSensor gps(PIN_GPS_RX, PIN_GPS_TX);
@@ -32,8 +34,6 @@ void setup() {
     buzzer.begin();
     
     bool sdOk = sdCard.begin(); // Inicializar SD Card (não-crítico — EEPROM é o armazenamento primário)
-    bool accOk = MPU.begin(); // Inicializar acelerômetro (não-crítico — dados complementares)
-
     if (!sdOk) {
         Serial.println(F("AVISO: SD Card falhou — continuando sem gravação SD"));
     } else {
@@ -65,7 +65,7 @@ void setup() {
 
     // Inicializar GPS
     gps.begin(9600); // NEO-6M geralmente trabalha em 9600 baud
-
+    delay(3000);
     // TODO: Calibrar baseline
 
     Serial.println(F("Sistema pronto!"));
@@ -76,7 +76,8 @@ void loop() {
 
     // Debug do GPS a cada 1 segundo
     gps.update();
-    if (millis() - lastGpsPrint >= 1000) {
+
+    if (millis() - lastGpsPrint >= 250) {
         lastGpsPrint = millis();
 
         if (gps.hasFix()) {

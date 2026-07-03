@@ -49,7 +49,7 @@ public:
     void update() {
         while (_gpsSerial.available() > 0) {
             char c = _gpsSerial.read();
-
+            
             if (_gps.encode(c)) {
                 _parseData();
             }
