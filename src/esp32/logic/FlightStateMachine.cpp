@@ -1,18 +1,19 @@
 /**
  * FlightStateMachine.cpp
  *
- * Implementação da máquina de estados de voo do Computador de Bordo ESP32.
- * Baseado no PRD RF-02 (seção 4.2) e no Projeto de Refatoração (seção 13).
+ * Máquina de 7 estados com transições unidirecionais:
  *
- * Máquina de 3 estados com transições unidirecionais:
- *   PRE_FLIGHT → ASCENT → RECOVERY
+ *   PRE_FLIGHT → ASCENT → ACTIVATE_SKIB_ONE → RECOVERY_STAGE_ONE
+ *   → ACTIVATE_SKIB_TWO → RECOVERY_STAGE_TWO → LANDED
  *
  * Transições:
- *   PRE_FLIGHT → ASCENT:   altitude suavizada ≥ ASCENT_THRESHOLD (5.0m)
- *   ASCENT → RECOVERY:     altitude ≤ (maxAltitude - DESCENT_DETECTION_THRESHOLD) E armado == true
- *
- * O histórico de altitudes suavizadas (ALTITUDE_HISTORY_SIZE = 5) é gerenciado
- * internamente com shift à direita: índice [0] = mais recente, [4] = mais antigo.
+ *   PRE_FLIGHT → ASCENT:            accVert >= 2.5g  E  altitude >= 5m
+ *   ASCENT → ACTIVATE_SKIB_ONE:     velVert <= 2.5m/s  E  -1g <= accVert <= 1g
+ *   ACTIVATE_SKIB_ONE → REC_ONE:    2s de ativação de SKIB
+ *   REC_ONE → ACTIVATE_SKIB_TWO:    velVert <= -8m/s  OU  altitude <= threshold
+ *   ACTIVATE_SKIB_TWO → REC_TWO:    2s de ativação de SKIB
+ *   REC_TWO → LANDED:               altitude <= 5m  E  |velVert| <= 0.5m/s
+ *   LANDED:                         Estado terminal — sem transição
  */
 
 #include "FlightStateMachine.h"
@@ -23,75 +24,96 @@
 
 FlightStateMachine::FlightStateMachine()
     : _state(FlightState::PRE_FLIGHT),
-      _apogeeDetected(false),
-      _armed(true),
-      _flightStartTime(0)
+      _previousState(FlightState::PRE_FLIGHT),
+      _stateChanged(true),  // true no boot para configurar periféricos iniciais
+      _flightStartTime(0),
+      _stateEntryTime(0)
 {
-    // Inicializa histórico de altitudes com zero
-    for (int i = 0; i < ALTITUDE_HISTORY_SIZE; i++) {
-        _altitudeHistory[i] = 0.0;
-    }
 }
 
 // ============================================================================
-// Atualização principal — chamada a cada ciclo de leitura do sensor
+// Atualização principal — chamada a cada ciclo de leitura dos sensores
 // ============================================================================
 
-void FlightStateMachine::update(double currentAltitude, double maxAltitude) {
-    // Atualiza o histórico interno de altitudes suavizadas
-    _pushHistory(currentAltitude);
+void FlightStateMachine::update(double altitude, float verticalVelocity,
+                                 float verticalAccelMs2) {
 
     switch (_state) {
 
         // ------------------------------------------------------------------
-        // PRE_FLIGHT: Monitorando altitude, aguardando decolagem
-        //   - Não grava EEPROM nem SD
-        //   - Armazena na fila circular pré-voo (gerenciada externamente)
-        //   - Transição: altitude ≥ ASCENT_THRESHOLD (5.0m)
+        // PRE_FLIGHT: Na rampa de lançamento, aguardando decolagem
+        //   - LED Azul, Buzzer 1500Hz/3s, GPS desativado, sem gravação
+        //   - Transição: accVert >= 2.5g E altitude >= 5m
         // ------------------------------------------------------------------
         case FlightState::PRE_FLIGHT:
-            if (_shouldTransitionToAscent(currentAltitude)) {
-                _state = FlightState::ASCENT;
+            if (_shouldTransitionToAscent(altitude, verticalAccelMs2)) {
                 _flightStartTime = millis();
-
-                Serial.println(F("[FSM] Transição: PRE_FLIGHT → ASCENT"));
-                Serial.print(F("[FSM] Altitude de decolagem: "));
-                Serial.print(currentAltitude, 1);
-                Serial.println(F(" m"));
+                _transitionTo(FlightState::ASCENT);
             }
             break;
 
         // ------------------------------------------------------------------
-        // ASCENT: Capturando dados de voo em alta resolução
-        //   - Grava EEPROM a cada 50ms (20Hz)
-        //   - Grava SD Card a cada 10ms (100Hz)
-        //   - Atualiza altitude máxima (gerenciada externamente)
-        //   - Transição: altitude ≤ (maxAltitude - 5.0m) E armado == true
+        // ASCENT: Foguete em subida ativa
+        //   - LED Ciano, Buzzer 2093Hz/1s, EEPROM 20Hz, SD 100Hz, GPS ativo
+        //   - Transição: velVert <= 2.5m/s E -1g <= accVert <= 1g (apogeu)
         // ------------------------------------------------------------------
         case FlightState::ASCENT:
-            if (_shouldTransitionToRecovery(currentAltitude, maxAltitude)) {
-                _state = FlightState::RECOVERY;
-                _apogeeDetected = true;
-                _armed = false;  // Impede reativação — PRD RF-03 item 7
-
-                Serial.println(F("[FSM] Transição: ASCENT → RECOVERY (apogeu detectado)"));
-                Serial.print(F("[FSM] Altitude máxima: "));
-                Serial.print(maxAltitude, 1);
-                Serial.println(F(" m"));
-                Serial.print(F("[FSM] Altitude atual: "));
-                Serial.print(currentAltitude, 1);
-                Serial.println(F(" m"));
+            if (_shouldTransitionToSkibOne(verticalVelocity, verticalAccelMs2)) {
+                _transitionTo(FlightState::ACTIVATE_SKIB_ONE);
             }
             break;
 
         // ------------------------------------------------------------------
-        // RECOVERY: Estado terminal — recuperação em andamento
-        //   - SKIB ativado (gerenciado pelo RecoverySystem)
-        //   - Grava EEPROM a cada 200ms (5Hz)
-        //   - Grava SD Card a cada 10ms (100Hz)
-        //   - Sem transição de saída
+        // ACTIVATE_SKIB_ONE: Ativação do paraquedas drogue
+        //   - LED Vermelho, Buzzer 3136Hz contínuo, EEPROM 5Hz, SD 100Hz
+        //   - SKIB 1 ativado (GPIO HIGH)
+        //   - Transição: 2s de ativação concluída
         // ------------------------------------------------------------------
-        case FlightState::RECOVERY:
+        case FlightState::ACTIVATE_SKIB_ONE:
+            if (_shouldTransitionToRecoveryOne()) {
+                _transitionTo(FlightState::RECOVERY_STAGE_ONE);
+            }
+            break;
+
+        // ------------------------------------------------------------------
+        // RECOVERY_STAGE_ONE: Descida com drogue aberto
+        //   - LED Laranja, sem buzzer, EEPROM 5Hz, SD 100Hz
+        //   - Transição: velVert <= -8m/s OU altitude <= threshold
+        // ------------------------------------------------------------------
+        case FlightState::RECOVERY_STAGE_ONE:
+            if (_shouldTransitionToSkibTwo(verticalVelocity, altitude)) {
+                _transitionTo(FlightState::ACTIVATE_SKIB_TWO);
+            }
+            break;
+
+        // ------------------------------------------------------------------
+        // ACTIVATE_SKIB_TWO: Ativação do paraquedas principal
+        //   - LED Vermelho, Buzzer 3136Hz contínuo, EEPROM 5Hz, SD 100Hz
+        //   - SKIB 2 ativado (GPIO HIGH)
+        //   - Transição: 2s de ativação concluída
+        // ------------------------------------------------------------------
+        case FlightState::ACTIVATE_SKIB_TWO:
+            if (_shouldTransitionToRecoveryTwo()) {
+                _transitionTo(FlightState::RECOVERY_STAGE_TWO);
+            }
+            break;
+
+        // ------------------------------------------------------------------
+        // RECOVERY_STAGE_TWO: Descida com paraquedas principal aberto
+        //   - LED Amarelo, sem buzzer, EEPROM 5Hz, SD 100Hz, GPS ativo
+        //   - Transição: altitude <= 5m E |velVert| <= 0.5m/s
+        // ------------------------------------------------------------------
+        case FlightState::RECOVERY_STAGE_TWO:
+            if (_shouldTransitionToLanded(altitude, verticalVelocity)) {
+                _transitionTo(FlightState::LANDED);
+            }
+            break;
+
+        // ------------------------------------------------------------------
+        // LANDED: Estado terminal — foguete pousou
+        //   - LED Verde, sem gravação, GPS ativo (para localização)
+        // ------------------------------------------------------------------
+        case FlightState::LANDED:
             // Estado terminal — nenhuma transição possível
             break;
     }
@@ -105,81 +127,112 @@ FlightState FlightStateMachine::getCurrentState() const {
     return _state;
 }
 
-bool FlightStateMachine::wasApogeeDetected() const {
-    return _apogeeDetected;
+FlightState FlightStateMachine::getPreviousState() const {
+    return _previousState;
+}
+
+bool FlightStateMachine::hasStateChanged() {
+    if (_stateChanged) {
+        _stateChanged = false;
+        return true;
+    }
+    return false;
 }
 
 unsigned long FlightStateMachine::getFlightStartTime() const {
     return _flightStartTime;
 }
 
-double FlightStateMachine::getHistory(int index) const {
-    if (index >= 0 && index < ALTITUDE_HISTORY_SIZE) {
-        return _altitudeHistory[index];
-    }
-    return 0.0;
+unsigned long FlightStateMachine::getStateEntryTime() const {
+    return _stateEntryTime;
 }
 
 // ============================================================================
-// Forçar estado (ex: reset após pouso, testes)
+// Forçar estado (testes, reset)
 // ============================================================================
 
 void FlightStateMachine::forceState(FlightState newState) {
-    _state = newState;
-
+    _transitionTo(newState);
     Serial.print(F("[FSM] Estado forçado para: "));
     Serial.println(static_cast<uint8_t>(newState));
 }
 
 // ============================================================================
-// Métodos privados
+// Transição de estado interna
+// ============================================================================
+
+void FlightStateMachine::_transitionTo(FlightState newState) {
+    _previousState = _state;
+    _state = newState;
+    _stateChanged = true;
+    _stateEntryTime = millis();
+
+    Serial.print(F("[FSM] Transição: "));
+    Serial.print(static_cast<uint8_t>(_previousState));
+    Serial.print(F(" → "));
+    Serial.println(static_cast<uint8_t>(newState));
+}
+
+// ============================================================================
+// Condições de transição
 // ============================================================================
 
 /**
- * _pushHistory — Atualiza o histórico de altitudes suavizadas.
- *
- * Implementa shift à direita conforme PRD seção 4.4.4:
- *   [0] = mais recente → [ALTITUDE_HISTORY_SIZE-1] = mais antigo
- *
- * A cada nova altitude, todos os valores são deslocados uma posição
- * para a direita e o novo valor é inserido na posição [0].
+ * PRE_FLIGHT → ASCENT
+ * Condição: aceleração vertical >= 2.5g E altitude >= 5m
  */
-void FlightStateMachine::_pushHistory(double altitude) {
-    // Shift à direita: move [0] para [1], [1] para [2], etc.
-    for (int i = ALTITUDE_HISTORY_SIZE - 1; i > 0; i--) {
-        _altitudeHistory[i] = _altitudeHistory[i - 1];
-    }
-    // Insere novo valor na posição mais recente
-    _altitudeHistory[0] = altitude;
+bool FlightStateMachine::_shouldTransitionToAscent(double altitude,
+                                                    float verticalAccelMs2) const {
+    return (verticalAccelMs2 >= ASCENT_ACCEL_THRESHOLD_MS2) &&
+           (altitude >= ASCENT_ALTITUDE_THRESHOLD_M);
 }
 
 /**
- * _shouldTransitionToAscent — Verifica condição de decolagem.
- *
- * PRD RF-02, seção 4.2.1:
- *   Transição quando smoothedAltitude ≥ ASCENT_THRESHOLD (5.0m)
- *
- * Usa a altitude suavizada mais recente (já filtrada pelo MovingAverage
- * antes de ser passada ao update()).
+ * ASCENT → ACTIVATE_SKIB_ONE
+ * Condição: velocidade vertical <= 2.5 m/s E -1g <= aceleração <= 1g
+ * Indica que o foguete atingiu o apogeu (velocidade ~0, aceleração ~0/queda livre)
  */
-bool FlightStateMachine::_shouldTransitionToAscent(double altitude) const {
-    return altitude >= ASCENT_THRESHOLD;
+bool FlightStateMachine::_shouldTransitionToSkibOne(float verticalVelocity,
+                                                     float verticalAccelMs2) const {
+    bool velocityLow = (verticalVelocity <= APOGEE_VERT_VEL_THRESHOLD_MS);
+    bool accelNearZero = (verticalAccelMs2 >= APOGEE_ACCEL_MIN_MS2) &&
+                         (verticalAccelMs2 <= APOGEE_ACCEL_MAX_MS2);
+    return velocityLow && accelNearZero;
 }
 
 /**
- * _shouldTransitionToRecovery — Verifica condição de apogeu.
- *
- * PRD RF-02, seção 4.2.2:
- *   Transição quando:
- *     1. altitudeHistory[0] ≤ maxAltitude - DESCENT_DETECTION_THRESHOLD (5.0m)
- *     2. _armed == true (impede reativação múltipla — PRD RF-03 item 7/8)
- *
- * A verificação de _armed garante que, uma vez desarmado, o SKIB
- * nunca seja reativado no mesmo voo.
+ * ACTIVATE_SKIB_ONE → RECOVERY_STAGE_ONE
+ * Condição: 2 segundos de ativação do SKIB concluídos
  */
-bool FlightStateMachine::_shouldTransitionToRecovery(double currentAlt, double maxAlt) const {
-    if (!_armed) {
-        return false;
-    }
-    return currentAlt <= (maxAlt - DESCENT_DETECTION_THRESHOLD);
+bool FlightStateMachine::_shouldTransitionToRecoveryOne() const {
+    return (millis() - _stateEntryTime) >= SKIB_ACTIVATION_DURATION_MS;
+}
+
+/**
+ * RECOVERY_STAGE_ONE → ACTIVATE_SKIB_TWO
+ * Condição: velocidade vertical <= -8 m/s OU altitude <= threshold
+ * Indica que é hora de abrir o paraquedas principal
+ */
+bool FlightStateMachine::_shouldTransitionToSkibTwo(float verticalVelocity,
+                                                     double altitude) const {
+    return (verticalVelocity <= STAGE_TWO_VERT_VEL_THRESHOLD_MS) ||
+           (altitude <= STAGE_TWO_ALT_THRESHOLD_M);
+}
+
+/**
+ * ACTIVATE_SKIB_TWO → RECOVERY_STAGE_TWO
+ * Condição: 2 segundos de ativação do SKIB concluídos
+ */
+bool FlightStateMachine::_shouldTransitionToRecoveryTwo() const {
+    return (millis() - _stateEntryTime) >= SKIB_ACTIVATION_DURATION_MS;
+}
+
+/**
+ * RECOVERY_STAGE_TWO → LANDED
+ * Condição: altitude <= 5m E |velocidade vertical| <= 0.5 m/s
+ */
+bool FlightStateMachine::_shouldTransitionToLanded(double altitude,
+                                                    float verticalVelocity) const {
+    return (altitude <= LANDED_ALT_THRESHOLD_M) &&
+           (fabs(verticalVelocity) <= LANDED_VERT_VEL_THRESHOLD_MS);
 }
