@@ -1,18 +1,28 @@
 /**
  * DataLogger.cpp
  *
- * Implementação do módulo de gravação de dados no SD Card.
- * Baseado no PRD RF-05 (seção 4.5.2) e no Projeto de Refatoração (seção 16).
+ * Gravação de dados de voo no SD Card a 100Hz (10ms).
+ * Grava apenas após sair do estado PRE_FLIGHT.
+ * Flush forçado a cada gravação (segurança contra perda de energia).
  *
- * Responsabilidades:
- *   - Grava dados de voo no SD Card em alta resolução (100Hz / 10ms)
- *   - Grava apenas após sair do estado PRE_FLIGHT
- *   - Formato CSV: Timestamp,Altitude,AccelX,AccelY,AccelZ,GyroX,GyroY,GyroZ,Temp,State
- *   - Flush forçado a cada gravação (segurança contra perda de energia)
+ * Timestamp relativo ao início do voo (FlightStateMachine::getFlightStartTime()).
  *
- * O timestamp é o tempo de voo em segundos, relativo ao início do voo
- * (fonte única de verdade: FlightStateMachine::getFlightStartTime()).
+ * GPS atualiza a 1Hz; entre atualizações, campos GPS repetem último valor conhecido.
+ *
+ * TODO: Expor temperatura do BMP280 (readTemperature) no Altimeter.h
  */
+
+// ======================================================================
+// TOGGLE DE MODO DE GRAVAÇÃO
+// ======================================================================
+// Descomente para gravar TODOS os campos de todos os sensores (16 colunas).
+// Comentado = modo normal otimizado (11 colunas, sem dados redundantes).
+//
+// Normal:    Timestamp,AltBaro,AccX,AccY,AccZ,GyrX,GyrY,GyrZ,Lat,Lon,State
+// Full data: Timestamp,AltBaro,Pressure,AccX,AccY,AccZ,GyrX,GyrY,GyrZ,TempMPU,Lat,Lon,AltGPS,Speed,Fix,State
+//
+// #define FULL_DATA_LOGGING
+// ======================================================================
 
 #include "DataLogger.h"
 
@@ -37,10 +47,17 @@ void DataLogger::begin() {
         return;
     }
 
-    // Cabeçalho CSV para versão ESP32 (PRD seção 4.5.2)
-    // Inclui todos os campos do AccelData: aceleração (3 eixos),
-    // giroscópio (3 eixos) e temperatura do MPU6050
-    _sdCard->setHeader(F("Timestamp,Altitude,AccelX,AccelY,AccelZ,GyroX,GyroY,GyroZ,Temp,State"));
+#ifdef FULL_DATA_LOGGING
+    // 16 colunas: adiciona Pressure, TempMPU, AltGPS, Speed, Fix
+    // Aceleração/giroscópio com 4 casas decimais (~930 KB / 60s de voo)
+    _sdCard->setHeader(F("Timestamp,AltBaro,Pressure,AccX,AccY,AccZ,GyrX,GyrY,GyrZ,TempMPU,Lat,Lon,AltGPS,Speed,Fix,State"));
+    Serial.println(F("[DataLogger] Modo FULL_DATA — 16 colunas"));
+#else
+    // 11 colunas: sem Pressure, TempMPU, AltGPS, Speed, Fix
+    // Aceleração/giroscópio com 2 casas decimais (~600 KB / 60s de voo)
+    _sdCard->setHeader(F("Timestamp,AltBaro,AccX,AccY,AccZ,GyrX,GyrY,GyrZ,Lat,Lon,State"));
+    Serial.println(F("[DataLogger] Modo NORMAL — 11 colunas"));
+#endif
 
     Serial.println(F("[DataLogger] Inicializado — gravação a 100Hz (10ms)"));
 }
@@ -49,26 +66,24 @@ void DataLogger::begin() {
 // Atualização — chamada a cada ciclo do loop principal
 // ============================================================================
 
-void DataLogger::update(unsigned long flightTimeMs, double altitude,
-                        const AccelData& accel, FlightState state) {
+void DataLogger::update(unsigned long flightTimeMs, double altitude, double pressure,
+                        const AccelData& accel, const GPSData& gps, FlightState state) {
 
-    // PRD RF-05 seção 4.5.2: "Início da gravação: Após sair do estado PRE_FLIGHT"
+    // Não grava em PRE_FLIGHT (PRD RF-05 seção 4.5.2)
     if (state == FlightState::PRE_FLIGHT) {
         return;
     }
 
-    // Verifica se gravação está habilitada e SD disponível
     if (!_enabled || _sdCard == nullptr || !_sdCard->isReady()) {
         return;
     }
 
-    // Timer não-bloqueante a 100Hz (RECORD_INTERVAL_SD_MS = 10ms)
+    // Timer não-bloqueante a 100Hz
     if (!_timer.isReady()) {
         return;
     }
 
-    // Formata e grava linha CSV
-    String line = _formatLine(flightTimeMs, altitude, accel, state);
+    String line = _formatLine(flightTimeMs, altitude, pressure, accel, gps, state);
     _sdCard->writeLine(line);
 }
 
@@ -80,7 +95,7 @@ void DataLogger::setEnabled(bool enabled) {
     _enabled = enabled;
 
     if (enabled) {
-        _timer.reset();  // Reinicia timer ao reabilitar
+        _timer.reset();
         Serial.println(F("[DataLogger] Gravação habilitada"));
     } else {
         Serial.println(F("[DataLogger] Gravação desabilitada"));
@@ -91,53 +106,56 @@ void DataLogger::setEnabled(bool enabled) {
 // Formatação da linha CSV
 // ============================================================================
 
-/**
- * _formatLine — Formata uma linha CSV com os dados de voo.
- *
- * Formato (PRD seção 4.5.2, versão ESP32):
- *   Timestamp,Altitude,AccelX,AccelY,AccelZ,GyroX,GyroY,GyroZ,Temp,State
- *
- * - Timestamp: tempo de voo em segundos (float, 3 casas decimais)
- * - Altitude: altitude suavizada em metros (2 casas decimais)
- * - AccelX/Y/Z: aceleração nos 3 eixos (m/s², 2 casas decimais)
- * - GyroX/Y/Z: giroscópio nos 3 eixos (rad/s, 2 casas decimais)
- * - Temp: temperatura do sensor (°C, 1 casa decimal)
- * - State: string "PRE_FLIGHT", "ASCENT" ou "RECOVERY"
- *
- * Se os dados do acelerômetro não forem válidos (accel.valid == false),
- * os campos são preenchidos com 0.00 para manter o formato CSV consistente.
- */
-String DataLogger::_formatLine(unsigned long flightTimeMs, double altitude,
-                               const AccelData& accel, FlightState state) {
+String DataLogger::_formatLine(unsigned long flightTimeMs, double altitude, double pressure,
+                               const AccelData& accel, const GPSData& gps, FlightState state) {
 
-    // Converte timestamp de ms para segundos (PRD: "Tempo de voo em segundos")
     float timestampSec = flightTimeMs / 1000.0f;
 
-    // Buffer para formatação — evita concatenação excessiva de String
-    // Formato: "0.010,12.34,1.23,-0.45,9.81,0.01,-0.02,0.03,24.5,ASCENT"
-    // Tamanho máximo estimado: ~100 caracteres
-    char buffer[120];
+#ifdef FULL_DATA_LOGGING
+    char buffer[200];
+#else
+    char buffer[140];
+#endif
 
     if (accel.valid) {
+
+#ifdef FULL_DATA_LOGGING
         snprintf(buffer, sizeof(buffer),
-                 "%.3f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.1f,%s",
-                 timestampSec,
-                 altitude,
-                 accel.accX,
-                 accel.accY,
-                 accel.accZ,
-                 accel.gyrX,
-                 accel.gyrY,
-                 accel.gyrZ,
+                 "%.3f,%.2f,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.1f,%.6f,%.6f,%.1f,%.1f,%u,%s",
+                 timestampSec, altitude, pressure,
+                 accel.accX, accel.accY, accel.accZ,
+                 accel.gyrX, accel.gyrY, accel.gyrZ,
                  accel.temp,
+                 gps.latitude, gps.longitude,
+                 gps.altitude, gps.speed, gps.fixQuality,
                  FlightStateUtils::toString(state));
-    } else {
-        // Dados inválidos — mantém formato CSV consistente com zeros
+#else
         snprintf(buffer, sizeof(buffer),
-                 "%.3f,%.2f,0.00,0.00,0.00,0.00,0.00,0.00,0.0,%s",
-                 timestampSec,
-                 altitude,
+                 "%.3f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.6f,%.6f,%s",
+                 timestampSec, altitude,
+                 accel.accX, accel.accY, accel.accZ,
+                 accel.gyrX, accel.gyrY, accel.gyrZ,
+                 gps.latitude, gps.longitude,
                  FlightStateUtils::toString(state));
+#endif
+
+    } else {
+        // Acelerômetro inválido — zeros para manter CSV consistente
+
+#ifdef FULL_DATA_LOGGING
+        snprintf(buffer, sizeof(buffer),
+                 "%.3f,%.2f,%.2f,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0,%.6f,%.6f,%.1f,%.1f,%u,%s",
+                 timestampSec, altitude, pressure,
+                 gps.latitude, gps.longitude,
+                 gps.altitude, gps.speed, gps.fixQuality,
+                 FlightStateUtils::toString(state));
+#else
+        snprintf(buffer, sizeof(buffer),
+                 "%.3f,%.2f,0.00,0.00,0.00,0.00,0.00,0.00,%.6f,%.6f,%s",
+                 timestampSec, altitude,
+                 gps.latitude, gps.longitude,
+                 FlightStateUtils::toString(state));
+#endif
     }
 
     return String(buffer);
