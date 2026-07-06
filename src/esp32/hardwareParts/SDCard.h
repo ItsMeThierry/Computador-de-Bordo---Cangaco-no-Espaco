@@ -16,8 +16,12 @@ public:
           _header(""),
           _currentFileName("") {}
 
-    // Inicializa SPI e SD Card, cria arquivo LOG_XX.CSV com auto-incremento
-    // Retorna true se SD pronto para gravação
+
+    /**
+    * @brief Inicializa SPI, SD Card e cria arquivo LOG_XX.CSV com auto-incremento.
+    * 
+    * @return true se SD pronto para gravação, false caso o contrário.
+    */
     bool begin() {
         if (!SD.begin(_csPin)) {
             Serial.println(F("[SDCard] Falha na inicialização do SD Card"));
@@ -34,13 +38,19 @@ public:
         return _ready;
     }
 
-    // Retorna true se SD está pronto para gravação
+    /**
+    * @return true se SD está pronto para gravação, false caso o contrário.
+    */
     bool isReady() const {
         return _ready;
     }
 
-    // Grava linha no arquivo, faz flush imediato (segurança contra perda de energia)
-    // PRD RF-05: flush forçado a cada gravação para evitar perda de dados
+    /**
+    * @brief Grava linha no arquivo e faz flush imediato (segurança contra perda de energia).
+    * 
+    * @param line   Linha a ser escrita no arquivo
+    * @warning flush forçado a cada gravação para evitar perda de dados.
+    */
     bool writeLine(const String& line) {
         if (!_ready) {
             return false;
@@ -62,21 +72,28 @@ public:
         return true;
     }
 
-    // Força flush do buffer do arquivo
+    /**
+    * @brief Força flush do buffer do arquivo.
+    */
     void flush() {
         if (_logFile) {
             _logFile.flush();
         }
     }
 
-    // Define cabeçalho CSV — será escrito na primeira linha de cada novo arquivo
-    // Exemplo ESP32: "Timestamp,Altitude,AccelX,AccelY,AccelZ,State"
+    /**
+    * @brief Define cabeçalho CSV — será escrito na primeira linha de cada novo arquivo.
+    * Exemplo ESP32: "Timestamp,Altitude,AccelX,AccelY,AccelZ,State"
+    * 
+    * @param header     A linha de cabeçalho a ser escrita no arquivo
+    */
     void setHeader(const String& header) {
         _header = header;
     }
 
-    // Cria novo arquivo de log (auto-incremento LOG_00.CSV a LOG_99.CSV)
-    // Escreve cabeçalho se definido
+    /**
+    * @brief Cria novo arquivo de log (auto-incremento LOG_00.CSV a LOG_99.CSV) e escreve o cabeçalho.
+    */
     void createNewLogFile() {
         if (!_ready) {
             return;
@@ -117,8 +134,11 @@ private:
     String _header;
     String _currentFileName;
 
-    // Procura próximo nome de arquivo disponível: LOG_00.CSV, LOG_01.CSV, ..., LOG_99.CSV
-    // Retorna String vazia se todos os 100 slots estão ocupados
+    /**
+    * @brief Procura próximo nome de arquivo disponível: LOG_00.CSV, LOG_01.CSV, ..., LOG_99.CSV.
+    * 
+    * @return String vazia se todos os 100 slots estão ocupados ou o nome do arquivo encontrado
+    */
     String _findNextFileName() {
         char filename[13];  // "/LOG_XX.CSV\0" = 12 chars + null
 

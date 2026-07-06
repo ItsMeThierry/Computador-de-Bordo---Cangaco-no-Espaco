@@ -2,17 +2,17 @@
 #define GPS_SENSOR_H
 
 #include <Arduino.h>
-#include <TinyGPS++.h>
-
+#include <TinyGPSPlus.h>
 #include <HardwareSerial.h>
 
+/// @brief Estrutura de dados para o GPS.
 struct GPSData {
-    double latitude;
-    double longitude;
-    double altitude;   // metros
-    double speed;      // km/h
-    uint8_t fixQuality;
-    bool isValid;
+    double latitude;    ///< Latitude (º)
+    double longitude;   ///< Longitude (º)
+    double altitude;    ///< Altitude (m)
+    double speed;       ///< Velocidade (km/h)
+    uint8_t fixQuality; ///< Fix
+    bool isValid;       ///< Valido
 };
 
 class GPSSensor {
@@ -33,6 +33,11 @@ public:
         _latestData.isValid = false;
     }
 
+    /**
+    * @brief Inicializa a porta Serial do GPS com as configurações definidas.
+    * 
+    * @param baudeRate  Bauderate serial do GPS. DEFAULT = 9600.
+    */
     void begin(unsigned long baudRate = 9600) {
         _gpsSerial.begin(baudRate, SERIAL_8N1, _rxPin, _txPin);
 
@@ -46,6 +51,9 @@ public:
         _lastValidTime = 0;
     }
 
+    /**
+    * @brief Lê a porta Serial, verificando se há dados do GPS.
+    */
     void update() {
         while (_gpsSerial.available() > 0) {
             char c = _gpsSerial.read();
@@ -62,10 +70,16 @@ public:
         }
     }
 
+    /**
+    * @return Os últimos dados lidos, no formato GPSData.
+    */
     GPSData getLatestData() const {
         return _latestData;
     }
 
+    /**
+    * @return True se o último dado lido for válido, false caso o contrário.
+    */
     bool hasFix() const {
         return _latestData.isValid;
     }
@@ -84,6 +98,9 @@ private:
     GPSData _latestData;
     unsigned long _lastValidTime;
 
+    /**
+    * @brief Transforma os dados vindos do GPS em GPSData para salvá-los como os últimos dados.
+    */
     void _parseData() {
         if (_fixQualityGPGGA.isValid()) {
             _latestData.fixQuality = atoi(_fixQualityGPGGA.value());

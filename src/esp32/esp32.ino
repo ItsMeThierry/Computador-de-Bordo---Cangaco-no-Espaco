@@ -1,4 +1,5 @@
 #include "config/Constants.h"
+#include "hardwareParts/Altimeter.h"
 #include "hardwareParts/Accelerometer.h"
 #include "hardwareParts/Buzzer.h"
 #include "hardwareParts/SDCard.h"
@@ -6,17 +7,19 @@
 #include "hardwareParts/GPS.h"
 #include "hardwareParts/LED_RGB.h"
 
+#include "logic/DataLogger.h"
+
 //Instanciando os objetos das classes no Hardware
-Accelerometer MPU;
+Altimeter altimeter;
+Accelerometer accelerometer;
 Buzzer buzzer(PIN_BUZZER);
 SDCard sdCard(PIN_SD_CS);
 //LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
 //LoRaPayload payload;
 LED_RGB led(PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE);
-
-// GPS NEO-6M
 GPSSensor gps(PIN_GPS_RX, PIN_GPS_TX);
-float lastGpsPrint;
+
+DataLogger dataLogger(&sdCard);
 
 // ===== SETUP =====
 void setup() {
@@ -32,81 +35,48 @@ void setup() {
 
     // Inicializar buzzer (configura canal LEDC)
     buzzer.begin();
-    
-    bool sdOk = sdCard.begin(); // Inicializar SD Card (não-crítico — EEPROM é o armazenamento primário)
+
+    bool accOk = accelerometer.begin(); // Inicializar acelerômetro (CRÍTICO)
+    bool altOk = altimeter.begin();     // Inicializar altimetro (CRÍTICO)
+
+    if (!accOk || !altOk) {
+        if (!accOk && !altOk) { 
+            led.setColor(255, 0, 0); // Vermelho
+            Serial.println(F("AVISO: Altímetro e Acelerometro falharam — interrompendo inicialização"));
+        }
+
+        if (!accOk && altOk || accOk && !altOk) { 
+            led.setColor(255, 0, 255); // Magenta
+            if (!accOk) Serial.println(F("AVISO: Acelerometro falhou — interrompendo inicialização"));
+            if (!altOk) Serial.println(F("AVISO: Altímetro falhou — interrompendo inicialização"));
+        }
+        
+        led.setBlinkInterval(500);
+        led.setBlinkEnabled(true);
+        while(1) led.update();
+    }
+
+    // Inicialização de componentes não-críticos
+    bool sdOk = sdCard.begin();
+    gps.begin(9600);
+
     if (!sdOk) {
-        Serial.println(F("AVISO: SD Card falhou — continuando sem gravação SD"));
+        led.setColor(255, 255, 0); // Amarelo - houve falha
+        // TODO: Som de buzzer específico para indicar falha
     } else {
-        Serial.println(F("SD Card ok!"));
+        led.setColor(0, 255, 0); // Verde - boot ok
+        // TODO: Som de buzzer específico para indicar sucesso
     }
 
-    // Inicializar acelerômetro (não-crítico — dados complementares)
-    bool accOk = MPU.begin();
-    if (!accOk) {
-        Serial.println(F("AVISO: Acelerometro falhou — continuando sem dados de aceleração"));
-    } else {
-        Serial.println(F("Acelerometro ok!"));
-    }
+    delay(1000);
 
-    // lora.begin(9600);
-    // if (!lora.isReady()) {
-    //     Serial.println(F("AVISO: LoRa falhou - continuando sem comunicação à base de lançamento"));
-    // } else {
-    //     Serial.println(F("LoRa ok!"));
-    // }
-
-    // TODO: Inicializar altímetro (CRÍTICO — único sensor que bloqueia o sistema)
-
-    // TODO: Instanciar e inicializar DataLogger
-    // A assinatura do update() agora recebe GPS e pressão bruta:
-    //   double pressure = altimeter.readPressure();
-    //   GPSData gpsData = gps.getLatestData();
-    //   dataLogger.update(flightTime, smoothedAltitude, pressure, accel, gpsData, newState);
-
-    // Inicializar GPS
-    gps.begin(9600); // NEO-6M geralmente trabalha em 9600 baud
-    delay(3000);
-    // TODO: Calibrar baseline
+    // TODO: Calibração do baseline
+ 
+    dataLogger.begin();
 
     Serial.println(F("Sistema pronto!"));
 }
 
 // ===== LOOP PRINCIPAL =====
 void loop() {
-
-    // Debug do GPS a cada 1 segundo
-    gps.update();
-
-    if (millis() - lastGpsPrint >= 250) {
-        lastGpsPrint = millis();
-
-        if (gps.hasFix()) {
-            GPSData gpsData = gps.getLatestData();
-
-            Serial.println(F("===== GPS ====="));
-
-            Serial.print(F("Latitude: "));
-            Serial.println(gpsData.latitude, 6);
-
-            Serial.print(F("Longitude: "));
-            Serial.println(gpsData.longitude, 6);
-
-            Serial.print(F("Altitude: "));
-            Serial.print(gpsData.altitude);
-            Serial.println(F(" m"));
-
-            Serial.print(F("Velocidade: "));
-            Serial.print(gpsData.speed);
-            Serial.println(F(" km/h"));
-
-            Serial.print(F("Fix Quality: "));
-            Serial.println(gpsData.fixQuality);
-
-            Serial.println(F("================"));
-        } else {
-            Serial.println(F("GPS sem fix..."));
-        }
-    }
-
 }
-

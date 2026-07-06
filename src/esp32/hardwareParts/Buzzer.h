@@ -20,24 +20,39 @@ public:
           _emergencyActive(false),
           _emergencyEndTime(0) {}
 
-    // Configura canal LEDC e anexa o pino do buzzer
+    /**
+    * @brief Configura canal LEDC e anexa o pino do buzzer.
+    */
     void begin() {
         ledcAttach(_pin, 2000, BUZZER_LEDC_RESOLUTION);
         _stopTone();  // Garante buzzer desligado ao iniciar
     }
 
-    // Liga buzzer na frequência especificada (via LEDC — ESP32 não tem tone() nativo)
+    /**
+    * @brief Liga buzzer na frequência especificada (via LEDC — ESP32 não tem tone() nativo).
+    * 
+    * @param frequency  Frequência de som
+    */
     void tone(unsigned int frequency) {
         _startTone(frequency);
     }
 
-    // Desliga buzzer
+    /**
+    * @brief Desliga buzzer.
+    */
     void noTone() {
         _stopTone();
     }
 
-    // Define padrão de beep: beep de 'durationMs' a cada 'periodMs' na frequência 'frequency'
-    // Só atualiza se os parâmetros mudaram, evitando reset desnecessário do timer
+    /**
+    * @brief Define padrão de beep.
+    * 
+    * @param periodMs   Período de cada beep (ms)
+    * @param durationMs Duração do beep (ms)
+    * @param frequency  Frequência do som
+    * 
+    * @warning Só atualiza se os parâmetros mudaram, evitando reset desnecessário do timer.
+    */
     void setBeepPattern(unsigned long periodMs, unsigned long durationMs, unsigned int frequency) {
         if (_beepPeriod == periodMs && _beepDuration == durationMs && _beepFreq == frequency) {
             return;  // Mesmo padrão — não resetar temporização
@@ -47,11 +62,16 @@ public:
         _beepFreq = frequency;
     }
 
-    // Gerencia temporização do padrão de beep — chamar no loop() a cada iteração
-    // Lógica do PRD RF-06:
-    //   1. Se buzzer de emergência (SKIB) ativo → não interferir
-    //   2. Se não está bipando E tempo desde último beep >= período → iniciar tone
-    //   3. Se está bipando E tempo desde início do beep >= duração → parar tone
+    /**
+    * @brief Gerencia temporização do padrão de beep — chamar no loop() a cada iteração.
+    * 
+    * @code 
+    * Lógica de operação:
+    *   1. Se buzzer de emergência (SKIB) ativo → não interferir
+    *   2. Se não está bipando E tempo desde último beep >= período → iniciar tone
+    *   3. Se está bipando E tempo desde início do beep >= duração → parar tone @endcode
+    *
+    */
     void update() {
         unsigned long now = millis();
 
@@ -88,13 +108,21 @@ public:
         }
     }
 
-    // Retorna true se buzzer está emitindo som (beep normal ou emergência)
+    /**
+    * @return true se buzzer está emitindo som (beep normal ou emergência).
+    */
     bool isPlaying() const {
         return _isBeeping || _emergencyActive;
     }
 
-    // Toca tom contínuo por durationMs — prioridade máxima (cancela padrão de beep)
-    // Usado para buzzer de emergência do SKIB (PRD RF-03: 3136Hz por 4000ms)
+    /**
+    * @brief Toca tom contínuo por uma duração definida — prioridade máxima (cancela padrão de beep).
+    * 
+    * @param frequency  Frequência do som
+    * @param durationMs Duração do som
+    * 
+    * @warning Usado para buzzer de emergência do SKIB (3136Hz por 4000ms).
+    */
     void playEmergency(unsigned int frequency, unsigned long durationMs) {
         _emergencyActive = true;
         _emergencyEndTime = millis() + durationMs;
@@ -112,12 +140,18 @@ private:
     bool _emergencyActive;          // true se buzzer de emergência (SKIB) está ativo
     unsigned long _emergencyEndTime; // Timestamp de fim do buzzer de emergência
 
-    // Inicia tom na frequência especificada via LEDC
+    /**
+    * @brief Inicia tom na frequência especificada via LEDC.
+    * 
+    * @param freq  Frequência do som
+    */
     void _startTone(unsigned int freq) {
         ledcWriteTone(_pin, freq);
     }
 
-    // Para o tom — duty cycle zero
+    /**
+    * @brief Para o tom — duty cycle zero.
+    */
     void _stopTone() {
         ledcWriteTone(_pin, 0);
     }
