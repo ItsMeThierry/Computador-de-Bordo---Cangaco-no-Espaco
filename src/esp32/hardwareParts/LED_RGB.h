@@ -19,12 +19,22 @@ public:
           _targetG(0),
           _targetB(0) { }
 
+    /**
+    * @brief Realiza a configuração inicial do LED RGB.
+    */
     void begin(){
         ledcAttach(_pinR, 5000, LED_RGB_LEDC_RESOLUTION);
         ledcAttach(_pinG, 5000, LED_RGB_LEDC_RESOLUTION);
         ledcAttach(_pinB, 5000, LED_RGB_LEDC_RESOLUTION);
     }
 
+    /**
+    * @brief Define o código de cor do LED.
+    * 
+    * @param red    Valor do canal vermelho
+    * @param green  Valor do canal verde
+    * @param blue   Valor do canal azul
+    */
     void setColor(uint8_t red, uint8_t green, uint8_t blue){
         _targetR = red;
         _targetG = green;
@@ -38,10 +48,18 @@ public:
         }
     }
 
+    /**
+    * @brief Define o intervalo de piscada do LED.
+    * 
+    * @param intervalMs  Intervalo entre piscadas
+    */
     void setBlinkInterval(unsigned long intervalMs){
         _blinkInterval = intervalMs;
     }
 
+    /**
+    * @brief Atualiza o LED.
+    */
     void update(){
         if (!_blinkEnabled || _forceMode) return;
 
@@ -57,6 +75,11 @@ public:
         }
     }
 
+    /**
+    * @brief Define se o LED está ligado ou não.
+    * 
+    * @param enabled    Estado do LED (on/off)
+    */
     void setBlinkEnabled(bool enabled){
         _blinkEnabled = enabled;
 
@@ -69,6 +92,14 @@ public:
     }
 
     // TODO: Rever funcionamento do forceColor para a ativação do SKIB
+    /**
+    * @brief Força o LED a ascender com uma cor definida, ignorando qualquer timer.
+    * 
+    * @param force  Modo de prioridade (true/false)
+    * @param r      Valor do canal vermelho do LED
+    * @param g      Valor do canal verde do LED
+    * @param b      Valor do canal azul do LED
+    */
     void forceColor(bool force, uint8_t r, uint8_t g, uint8_t b){ 
         _forceMode = force;
 
