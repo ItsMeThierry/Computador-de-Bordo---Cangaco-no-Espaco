@@ -9,6 +9,8 @@
 
 #include "logic/DataLogger.h"
 
+#include "utils/Timer.h"
+
 //Instanciando os objetos das classes no Hardware
 Altimeter altimeter;
 Accelerometer accelerometer;
@@ -21,17 +23,22 @@ GPSSensor gps(PIN_GPS_RX, PIN_GPS_TX);
 
 DataLogger dataLogger(&sdCard);
 
+FlightStateMachine stateMachine;
+
+Timer sensorsTimer(SENSOR_READ_INTERVAL_MS);
+
 // ===== SETUP =====
 void setup() {
 
     Serial.begin(115200);
-    delay(3000);
     Serial.println(F("Iniciando Computador de Bordo ESP32"));
 
     // Indica boot
     led.begin();
     led.setColor(0, 0, 255);
     led.setBlinkEnabled(false);
+
+    delay(3000);
 
     // Inicializar buzzer (configura canal LEDC)
     buzzer.begin();
@@ -70,7 +77,7 @@ void setup() {
 
     delay(1000);
 
-    // TODO: Calibração do baseline
+    altimeter.resetBaseline();
  
     dataLogger.begin();
 
@@ -79,4 +86,17 @@ void setup() {
 
 // ===== LOOP PRINCIPAL =====
 void loop() {
+    // Leitura dos sensores a 20 Hz
+    if (sensorsTimer.isReady()) {
+        double pressure = altimeter.readPressure();
+        double rawAltitude = altimeter.calculateAltitude();
+        AccelData accel = accelerometer.readAcceleration();
+
+        // FlightState oldState = stateMachine.getCurrentState();
+        // stateMachine.update(rawAltitude, 0, accel.accZ);
+        // FlightState newState = stateMachine.getCurrentState();
+    }
+
+    led.update();
+    buzzer.update();
 }

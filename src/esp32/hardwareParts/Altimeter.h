@@ -7,6 +7,11 @@
 #include <Wire.h>
 #include <Adafruit_BMP280.h> 
 
+#define BMP280_SDA_PIN 21
+#define BMP280_SCL_PIN 22
+
+#define BMP280_ADDRESS 0x76
+
 class Altimeter {
 public:
 
@@ -20,7 +25,8 @@ public:
     * @return true se o sensor foi inicializado e configurado com sucesso, false caso contrário (ex: sensor não encontrado ou falha na comunicação).
     */
     bool begin() {
-        _connected = _sensor.begin(); 
+        Wire.begin(BMP280_SDA_PIN, BMP280_SCL_PIN);
+        _connected = _sensor.begin(BMP280_ADDRESS); 
         
         if (_connected) {
             _sensor.setSampling(Adafruit_BMP280::MODE_NORMAL,     
@@ -56,11 +62,10 @@ public:
     /**
     * @brief Lê o valor de altitude do sensor com base em um baseline.
     * 
-    * @param baseline   Valor de baseline como referência (hPa).
     * @return Altitude em metros. 
     */
-    double calculateAltitude(double baseline) {
-        float altitude = readAltitude(baseline);
+    double calculateAltitude() {
+        float altitude = _sensor.readAltitude(_baseline);
         return altitude;
     }
 

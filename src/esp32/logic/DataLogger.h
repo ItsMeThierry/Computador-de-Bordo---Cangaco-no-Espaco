@@ -41,7 +41,7 @@ public:
     DataLogger(SDCard* sdCard)
         : _sdCard(sdCard),
         _enabled(true),
-        _timer(RECORD_INTERVAL_SD_MS) {}
+        _timer(SD_INTERVAL_MS) {}
 
     // Inicialização — define o cabeçalho CSV
     void begin() {
