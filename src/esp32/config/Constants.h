@@ -99,13 +99,13 @@ constexpr unsigned int GPS_UPDATE_RATE_HZ = 5;   // Taxa de atualização GPS (H
 
 // ========== PINAGEM (ESP32 DevKit V1) ==========
 // SKIB
-constexpr int PIN_SKIB_1   = 4;   // SKIB primário (paraquedas drogue)
+constexpr int PIN_SKIB_1   = 15;   // SKIB primário (paraquedas drogue)
 constexpr int PIN_SKIB_2   = 14;  // SKIB secundário (paraquedas principal)
 
 // Feedback
 constexpr int PIN_BUZZER    = 13;
-constexpr int PIN_LED_RED   = 26;
-constexpr int PIN_LED_GREEN = 25;
+constexpr int PIN_LED_RED   = 25;
+constexpr int PIN_LED_GREEN = 26;
 constexpr int PIN_LED_BLUE  = 27;
 
 // SD Card (SPI)
@@ -120,7 +120,7 @@ constexpr int PIN_I2C_SCL = 22;
 
 // GPS (UART2)
 constexpr int PIN_GPS_RX = 36; // TODO: Rever pino do GPS
-constexpr int PIN_GPS_TX = 14; // TODO: Rever pino do GPS
+constexpr int PIN_GPS_TX = 15; // TODO: Rever pino do GPS
 
 // LoRa E220 (UART1)
 constexpr int PIN_LORA_RX  = 16;  // TX do módulo → RX do ESP

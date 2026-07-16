@@ -7,11 +7,14 @@
 
 // Tamanho máximo para o nome do arquivo LOG_XX.CSV
 static constexpr int SD_MAX_LOG_FILES = 100;  // LOG_00 a LOG_99
-
 class SDCard {
 public:
-    SDCard(int csPin)
-        : _csPin(csPin),
+    SDCard(int sckPin, int misoPin, int mosiPin, int csPin)
+        : _sckPin(sckPin),
+          _misoPin(misoPin),
+          _mosiPin(mosiPin), 
+          _csPin(csPin),
+          _spi(VSPI),
           _ready(false),
           _header(""),
           _currentFileName("") {}
@@ -23,7 +26,11 @@ public:
     * @return true se SD pronto para gravação, false caso o contrário.
     */
     bool begin() {
-        if (!SD.begin(_csPin)) {
+        // Inicialização do SPI
+        _spi.begin(_sckPin, _misoPin, _mosiPin, _csPin);
+        _spi.setFrequency(400000);
+
+        if (!SD.begin(_csPin, _spi, 400000)) {
             Serial.println(F("[SDCard] Falha na inicialização do SD Card"));
             _ready = false;
             return false;
@@ -128,7 +135,8 @@ public:
     }
 
 private:
-    int _csPin;
+    int _csPin, _sckPin, _misoPin, _mosiPin;
+    SPIClass _spi;
     File _logFile;
     bool _ready;
     String _header;

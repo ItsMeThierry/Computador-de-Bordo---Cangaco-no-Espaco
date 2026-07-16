@@ -2,7 +2,7 @@
 #define GPS_SENSOR_H
 
 #include <Arduino.h>
-#include <TinyGPSPlus.h>
+#include <TinyGPS++.h>
 #include <HardwareSerial.h>
 
 /// @brief Estrutura de dados para o GPS.

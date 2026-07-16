@@ -281,7 +281,7 @@ void showHelp() {
 // ===== SETUP =====
 void setup() {
     Serial.begin(115200);
-    delay(2000);
+    delay(3000);
 
     Serial.println(F("\n"));
     Serial.println(F("================================================"));

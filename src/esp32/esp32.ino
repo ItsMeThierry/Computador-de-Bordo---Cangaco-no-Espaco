@@ -15,7 +15,7 @@
 Altimeter altimeter;
 Accelerometer accelerometer;
 Buzzer buzzer(PIN_BUZZER);
-SDCard sdCard(PIN_SD_CS);
+SDCard sdCard(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI, PIN_SD_CS);
 //LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
 //LoRaPayload payload;
 LED_RGB led(PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE);
@@ -43,8 +43,11 @@ void setup() {
     // Inicializar buzzer (configura canal LEDC)
     buzzer.begin();
 
-    bool accOk = accelerometer.begin(); // Inicializar acelerômetro (CRÍTICO)
-    bool altOk = altimeter.begin();     // Inicializar altimetro (CRÍTICO)
+    // bool accOk = accelerometer.begin(); // Inicializar acelerômetro (CRÍTICO)
+    // bool altOk = altimeter.begin();     // Inicializar altimetro (CRÍTICO)
+
+    bool accOk = true;
+    bool altOk = true;
 
     if (!accOk || !altOk) {
         if (!accOk && !altOk) { 
@@ -64,11 +67,12 @@ void setup() {
     }
 
     // Inicialização de componentes não-críticos
-    bool sdOk = sdCard.begin();
     gps.begin(9600);
 
+    bool sdOk = sdCard.begin();
+
     if (!sdOk) {
-        led.setColor(255, 255, 0); // Amarelo - houve falha
+        led.setColor(0, 0, 0); // Amarelo - houve falha
         // TODO: Som de buzzer específico para indicar falha
     } else {
         led.setColor(0, 255, 0); // Verde - boot ok
@@ -77,7 +81,7 @@ void setup() {
 
     delay(1000);
 
-    altimeter.resetBaseline();
+    //altimeter.resetBaseline();
  
     dataLogger.begin();
 
@@ -87,15 +91,15 @@ void setup() {
 // ===== LOOP PRINCIPAL =====
 void loop() {
     // Leitura dos sensores a 20 Hz
-    if (sensorsTimer.isReady()) {
-        double pressure = altimeter.readPressure();
-        double rawAltitude = altimeter.calculateAltitude();
-        AccelData accel = accelerometer.readAcceleration();
+    // if (sensorsTimer.isReady()) {
+    //     double pressure = altimeter.readPressure();
+    //     double rawAltitude = altimeter.calculateAltitude();
+    //     AccelData accel = accelerometer.readAcceleration();
 
-        // FlightState oldState = stateMachine.getCurrentState();
-        // stateMachine.update(rawAltitude, 0, accel.accZ);
-        // FlightState newState = stateMachine.getCurrentState();
-    }
+    //     // FlightState oldState = stateMachine.getCurrentState();
+    //     // stateMachine.update(rawAltitude, 0, accel.accZ);
+    //     // FlightState newState = stateMachine.getCurrentState();
+    // }
 
     led.update();
     buzzer.update();
