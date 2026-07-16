@@ -17,7 +17,6 @@ Accelerometer accelerometer;
 Buzzer buzzer(PIN_BUZZER);
 SDCard sdCard(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI, PIN_SD_CS);
 //LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
-//LoRaPayload payload;
 LED_RGB led(PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE);
 GPSSensor gps(PIN_GPS_RX, PIN_GPS_TX);
 

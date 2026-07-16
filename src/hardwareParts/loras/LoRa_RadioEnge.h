@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include "LoRaMESH.h"
 
+// Código LoRa RadioEnge adaptado de Bruno Lopes
+
 enum LoRaCommandType : uint8_t {
   CMD_READ        = 1, // Pede telemetria
   CMD_PING        = 2, 

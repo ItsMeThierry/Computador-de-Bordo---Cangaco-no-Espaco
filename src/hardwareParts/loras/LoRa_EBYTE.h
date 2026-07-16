@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <LoRa_E220.h>
 
+// Código LoRa da EBYTE adaptado de Bruno Lopes
+
 enum LoRaCommandType : uint8_t {
   CMD_READ        = 1, // Pede telemetria
   CMD_PING        = 2, 
@@ -16,6 +18,14 @@ enum LoRaCommandType : uint8_t {
 
 struct LoRaCommand {
   uint8_t cmd;
+};
+
+enum LoRaResponseType : uint8_t {
+  RESP_DATA       = 1, // Retorna Telemetria (Alt, Acc, Estado)
+  RESP_PONG       = 2,
+  RESP_GPS        = 3, // Retorna GPS (Lat, Lon)
+  RESP_SD_FIM     = 4, // Sinaliza fim do download do SD
+  RESP_ERROR      = 5
 };
 
 struct LoRaResponse {
@@ -46,7 +56,7 @@ public:
     }
     
     // Recebe um comando da base de lançamentos
-    LoRaCommand receive() {
+    LoRaCommand receive_command() {
         LoRaCommand c;
 
         if (_lora.available() > 1) {
@@ -62,6 +72,33 @@ public:
         }
 
         return c;
+    }
+
+    LoRaResponse receive() {
+        LoRaResponse r;
+
+        if (_lora.available() > 1) {
+            ResponseStructContainer rsc = _lora.receiveMessage(sizeof(LoRaCommand));
+
+            if (rsc.status.code == E220_SUCCESS) {
+                memcpy(&r, rsc.data, sizeof(LoRaResponse));
+
+                // Verifica se é um pacote inválido (tipos de 1 a 4). 
+                // Se for lixo RF, limpa o buffer para ressincronizar.
+                if (r.resp < RESP_DATA || r.resp > RESP_SD_FIM) {
+                    Serial.println(F("[AVISO] Ruido RF detetado. A limpar buffer..."));
+                    while(Serial2.available()) Serial2.read(); // Limpa o lixo
+                    r.resp = RESP_ERROR;
+                }
+
+            } else {
+                r.resp = RESP_ERROR;
+            }
+
+            rsc.close();
+        }
+
+        return r;
     }
 
     bool transmit(LoRaResponse& response) {
