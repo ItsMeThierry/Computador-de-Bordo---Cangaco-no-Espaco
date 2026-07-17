@@ -46,21 +46,24 @@ float getSelectedAccel(const AccelData &accel)
 
 void saveFakeEepromSamples()
 {
+    const unsigned long fakeTimeStepMs = 10UL;
+    unsigned long flightTimeMs = 0;
+
     for (int i = 0; i < 20; i++)
     {
         AccelData fakeAccel;
-        fakeAccel.accX = 0.10f + (i * 0.01f);
-        fakeAccel.accY = -0.05f;
-        fakeAccel.accZ = 9.80f + (i * 0.02f);
-        fakeAccel.gyrX = 0.0f;
-        fakeAccel.gyrY = 0.0f;
-        fakeAccel.gyrZ = 0.0f;
-        fakeAccel.temp = 25.0f;
+        fakeAccel.accX = random(-500, 500) / 100.0f;
+        fakeAccel.accY = random(-500, 500) / 100.0f;
+        fakeAccel.accZ = random(700, 1300) / 100.0f;
+        fakeAccel.gyrX = random(-25000, 25000) / 100.0f;
+        fakeAccel.gyrY = random(-25000, 25000) / 100.0f;
+        fakeAccel.gyrZ = random(-25000, 25000) / 100.0f;
+        fakeAccel.temp = random(2000, 3500) / 100.0f;
         fakeAccel.valid = true;
 
-        const unsigned long flightTimeMs = i * 50UL;
-        const double altitude = 100.0 + (i * 2.5);
+        const double altitude = random(0, 30000) / 10.0;
         dataStorage.saveFlightSample(flightTimeMs, altitude, fakeAccel);
+        flightTimeMs += fakeTimeStepMs;
     }
 
     dataStorage.flushPendingWrites();
@@ -135,6 +138,7 @@ void setup()
 
     Serial.begin(115200);
     delay(1000);
+    randomSeed(micros());
     Serial.println(F("Iniciando Computador de Bordo ESP32"));
     dataStorage.begin();
     Serial.println(F("[DataStorage] Comandos: EEPROM_INFO, EEPROM_READ, EEPROM_CLEAR, EEPROM_FAKE_SAVE"));
