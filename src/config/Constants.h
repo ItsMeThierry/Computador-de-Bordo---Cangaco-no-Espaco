@@ -86,9 +86,18 @@ constexpr unsigned long BEEP_PERIOD_ASCENT_MS     = 1000;
 constexpr unsigned long BEEP_DURATION_MS          = 400;
 
 // ========== PARÂMETROS DE ARMAZENAMENTO ==========
-constexpr int   MAX_FLIGHT_DATA_POINTS = 497;   // Pontos na EEPROM
-constexpr int   PRE_FLIGHT_QUEUE_SIZE  = 4;     // Pontos pré-voo
-constexpr float ALTITUDE_SCALE_FACTOR  = 10.0f; // Para conversão short int
+// Backup compacto na EEPROM/flash do ESP32.
+// Cada ponto salvo ocupa 10 bytes: tempo + altitude + aceleração X/Y/Z.
+// A gravação é binária, não CSV, para caber mais amostras como plano B do SD.
+constexpr int   EEPROM_FALLBACK_SIZE_BYTES = 4096;   // Usado se não der para detectar a NVS
+constexpr int   EEPROM_NVS_RESERVE_BYTES   = 4096;   // Sobra mínima para outras chaves NVS
+constexpr int   EEPROM_PROBE_STEP_BYTES    = 512;    // Passo ao procurar maior bloco válido
+constexpr int   EEPROM_METADATA_BYTES      = 16;
+constexpr int   EEPROM_FLIGHT_SAMPLE_BYTES = 10;
+constexpr int   EEPROM_COMMIT_BATCH_SIZE   = 20;     // Amostras acumuladas antes do commit na Flash
+constexpr int   PRE_FLIGHT_QUEUE_SIZE      = 4;      // Pontos pré-voo
+constexpr float ALTITUDE_SCALE_FACTOR      = 10.0f;  // metros -> decímetros
+constexpr float ACCEL_SCALE_FACTOR         = 100.0f; // m/s² -> centésimos
 
 // ========== COMUNICAÇÃO SERIAL ==========
 constexpr unsigned long GPS_UART_BAUD  = 9600;   // Baudrate UART GPS NEO-6M

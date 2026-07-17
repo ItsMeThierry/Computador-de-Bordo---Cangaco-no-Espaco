@@ -44,12 +44,13 @@ public:
           _m0Pin(m0Pin),
           _m1Pin(m1Pin),
           _auxPin(auxPin),
+          _initialized(false),
           _lora(&Serial2, auxPin, m0Pin, m1Pin) {}
 
     // Inicializa e configura o módulo LoRa com parâmetros específicos para comunicação;
     // Exige um "baudrate" para configurar as portas RX e TX
-    void begin(int baudrate) {
-        _serialLoRa.begin(baudrate, SERIAL_8N1, _rxPin, _txPin);
+    void begin(int baudrate = 9600) {
+        Serial2.begin(baudrate, SERIAL_8N1, _rxPin, _txPin);
         _lora.begin();
 
         _initialized = true;
@@ -58,6 +59,7 @@ public:
     // Recebe um comando da base de lançamentos
     LoRaCommand receive_command() {
         LoRaCommand c;
+        c.cmd = CMD_ERROR;
 
         if (_lora.available() > 1) {
             ResponseStructContainer rsc = _lora.receiveMessage(sizeof(LoRaCommand));
@@ -76,9 +78,14 @@ public:
 
     LoRaResponse receive() {
         LoRaResponse r;
+        r.resp = RESP_ERROR;
+        r.timestamp = 0;
+        r.valor1 = 0.0f;
+        r.valor2 = 0.0f;
+        r.contador = 0;
 
         if (_lora.available() > 1) {
-            ResponseStructContainer rsc = _lora.receiveMessage(sizeof(LoRaCommand));
+            ResponseStructContainer rsc = _lora.receiveMessage(sizeof(LoRaResponse));
 
             if (rsc.status.code == E220_SUCCESS) {
                 memcpy(&r, rsc.data, sizeof(LoRaResponse));
@@ -103,6 +110,12 @@ public:
 
     bool transmit(LoRaResponse& response) {
         ResponseStatus status = _lora.sendMessage(&response, sizeof(response));
+
+        return status.code == E220_SUCCESS;
+    }
+
+    bool transmit(LoRaCommand& command) {
+        ResponseStatus status = _lora.sendMessage(&command, sizeof(command));
 
         return status.code == E220_SUCCESS;
     }
