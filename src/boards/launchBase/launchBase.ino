@@ -1,17 +1,5 @@
-/*
-  Codigo da base comentado para nao ser compilado junto com src/src.ino.
-
-  O Arduino compila todos os arquivos .ino que ficam na mesma pasta do sketch.
-  Como src/src.ino ja tem setup() e loop(), deixar a base ativa aqui causaria
-  erro de "redefinition of 'void setup()'".
-
-  Para compilar a base separadamente, use:
-    ../base/base.ino
-*/
-
-/*
-#include "../src/hardwareParts/loras/LoRa_EBYTE.h"
-#include "../src/config/Constants.h"
+#include "../../hardwareParts/loras/LoRa_EBYTE.h"
+#include "../../config/Constants.h"
 
 LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
 
@@ -72,4 +60,3 @@ void printHelp() {
     Serial.println(F(" ARMAR -> Forca Voo  | RESET -> Zera Altimetro"));
     Serial.println(F(" SD    -> Baixa Log  | PING  -> Testa Conexao"));
 }
-*/

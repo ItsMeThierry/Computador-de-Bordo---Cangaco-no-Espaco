@@ -21,7 +21,7 @@
 //   h  → Mostra menu de ajuda
 // ============================================================================
 
-#include "../hardwareParts/SDCard.h"
+#include "../../hardwareParts/SDCard.h"
 #include <SD.h>
 
 // ===== CONFIGURAÇÃO =====
