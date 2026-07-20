@@ -38,14 +38,11 @@ constexpr int   WINDOW_SIZE           = 5;  // Janela da média móvel
 constexpr int   ALTITUDE_HISTORY_SIZE = 5;  // Tamanho do histórico de altitudes
 
 // ========== PARÂMETROS DE TEMPORIZAÇÃO ==========
-constexpr unsigned long SENSOR_READ_INTERVAL_MS = 50;   // 20 Hz — leitura de sensores
+constexpr unsigned long SENSOR_READ_INTERVAL_MS = 20;   // 50 Hz — leitura de sensores
 
 // Gravação EEPROM por estado
-constexpr unsigned long EEPROM_INTERVAL_ASCENT_MS       = 50;   // 20 Hz na subida
-constexpr unsigned long EEPROM_INTERVAL_RECOVERY_MS     = 200;  // 5 Hz na recuperação
-
-// Gravação SD Card
-constexpr unsigned long SD_INTERVAL_MS                  = 10;   // 100 Hz no SD
+constexpr unsigned long EEPROM_INTERVAL_ASCENT_MS       = 20;   // 50 Hz ate fim do apogeu
+constexpr unsigned long EEPROM_INTERVAL_RECOVERY_MS     = 50;   // 20 Hz no restante do voo
 
 // Telemetria LoRa
 constexpr unsigned long LORA_TX_INTERVAL_MS             = 1000; // 1 Hz LoRa (fixo)
@@ -87,17 +84,23 @@ constexpr unsigned long BEEP_DURATION_MS          = 400;
 
 // ========== PARÂMETROS DE ARMAZENAMENTO ==========
 // Backup compacto na EEPROM/flash do ESP32.
-// Cada ponto salvo ocupa 10 bytes: tempo + altitude + aceleração X/Y/Z.
-// A gravação é binária, não CSV, para caber mais amostras como plano B do SD.
+// V1 EEPROM/NVS: 9 bytes = tempo + FlightState + altitude + velocidade angular XYZ.
+// V2 flightlog: 14 bytes = V1 + aceleracao XYZ.
+constexpr bool  BACKUP_USE_FLIGHTLOG_PARTITION = true; // true = partição flightlog, false = EEPROM/NVS
+constexpr const char* FLIGHTLOG_PARTITION_LABEL = "flightlog";
+constexpr int   FLIGHTLOG_METADATA_BYTES = 4096;    // 1 setor reservado para cabeçalho
+constexpr int   FLASH_ERASE_SECTOR_BYTES = 4096;
 constexpr int   EEPROM_FALLBACK_SIZE_BYTES = 4096;   // Usado se não der para detectar a NVS
 constexpr int   EEPROM_NVS_RESERVE_BYTES   = 4096;   // Sobra mínima para outras chaves NVS
 constexpr int   EEPROM_PROBE_STEP_BYTES    = 512;    // Passo ao procurar maior bloco válido
 constexpr int   EEPROM_METADATA_BYTES      = 16;
-constexpr int   EEPROM_FLIGHT_SAMPLE_BYTES = 10;
+constexpr int   EEPROM_FLIGHT_SAMPLE_BYTES = 9;
+constexpr int   FLIGHTLOG_FLIGHT_SAMPLE_BYTES = 14;
 constexpr int   EEPROM_COMMIT_BATCH_SIZE   = 20;     // Amostras acumuladas antes do commit na Flash
 constexpr int   PRE_FLIGHT_QUEUE_SIZE      = 4;      // Pontos pré-voo
 constexpr float ALTITUDE_SCALE_FACTOR      = 10.0f;  // metros -> decímetros
-constexpr float ACCEL_SCALE_FACTOR         = 100.0f; // m/s² -> centésimos
+constexpr float ANGULAR_VELOCITY_SCALE_FACTOR = 100.0f; // rad/s -> centésimos de rad/s
+constexpr float ACCEL_BACKUP_SCALE_FACTOR  = 20.0f;  // m/s² -> passos de 0,05 m/s²
 
 // ========== COMUNICAÇÃO SERIAL ==========
 constexpr unsigned long GPS_UART_BAUD  = 9600;   // Baudrate UART GPS NEO-6M
@@ -116,12 +119,6 @@ constexpr int PIN_BUZZER    = 13;
 constexpr int PIN_LED_RED   = 25;
 constexpr int PIN_LED_GREEN = 26;
 constexpr int PIN_LED_BLUE  = 27;
-
-// SD Card (SPI)
-constexpr int PIN_SD_CS    = 5;
-constexpr int PIN_SPI_MOSI = 23;
-constexpr int PIN_SPI_MISO = 19;
-constexpr int PIN_SPI_SCK  = 18;
 
 // I2C (BMP280 + MPU6050)
 constexpr int PIN_I2C_SDA = 21;

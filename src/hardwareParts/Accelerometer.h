@@ -11,9 +11,9 @@ struct AccelData {
     float accX;   ///< Aceleração no eixo X (m/s² em g)
     float accY;   ///< Aceleração no eixo Y (m/s² em g)
     float accZ;   ///< Aceleração no eixo Z (m/s² em g)
-    float gyrX;   ///< Velocidade angular no eixo X (dps)
-    float gyrY;   ///< Velocidade angular no eixo Y (dps)
-    float gyrZ;   ///< Velocidade angular no eixo Z (dps)
+    float gyrX;   ///< Velocidade angular no eixo X (rad/s)
+    float gyrY;   ///< Velocidade angular no eixo Y (rad/s)
+    float gyrZ;   ///< Velocidade angular no eixo Z (rad/s)
     float temp;   ///< Temperatura em graus Celsius (°C)
     bool valid;   ///< true se os dados são válidos, false se falha na leitura
 };
@@ -42,7 +42,7 @@ public:
     * 
     * @return AccelData contendo:
     *   - accX, accY, accZ: Aceleração nos eixos X, Y e Z (em g)
-    *   - gyrX, gyrZ, gyrZ: Velocidade angular nos eixos X, Y e Z (dps)
+    *   - gyrX, gyrY, gyrZ: Velocidade angular nos eixos X, Y e Z (rad/s)
     *   - temp: Temperatura (°C)
     *   - valid: true se a leitura foi bem sucedida, false caso contrário 
     */

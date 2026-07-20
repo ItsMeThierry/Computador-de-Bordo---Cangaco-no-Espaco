@@ -2,12 +2,9 @@
 #include "hardwareParts/Altimeter.h"
 #include "hardwareParts/Accelerometer.h"
 #include "hardwareParts/Buzzer.h"
-#include "hardwareParts/SDCard.h"
 // #include "hardwareParts/LoRaRadio.h"
-#include "hardwareParts/GPS.h"
 #include "hardwareParts/LED_RGB.h"
 
-#include "logic/DataLogger.h"
 #include "logic/DataStorage.h"
 
 #include "utils/Timer.h"
@@ -16,12 +13,9 @@
 Altimeter altimeter;
 Accelerometer accelerometer;
 Buzzer buzzer(PIN_BUZZER);
-SDCard sdCard(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI, PIN_SD_CS);
 // LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
 LED_RGB led(PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE);
-GPSSensor gps(PIN_GPS_RX, PIN_GPS_TX);
 
-DataLogger dataLogger(&sdCard);
 DataStorage dataStorage;
 
 FlightStateMachine stateMachine;
@@ -46,28 +40,26 @@ float getSelectedAccel(const AccelData &accel)
 
 void saveFakeEepromSamples()
 {
-    const unsigned long fakeTimeStepMs = 10UL;
-    unsigned long flightTimeMs = 0;
-
     for (int i = 0; i < 20; i++)
     {
+        const FlightState fakeState = static_cast<FlightState>(i % 7);
+        const unsigned long fakeTimeMs = i * 50UL;
+        const double fakeAltitude = i * 2.5;
         AccelData fakeAccel;
-        fakeAccel.accX = random(-500, 500) / 100.0f;
-        fakeAccel.accY = random(-500, 500) / 100.0f;
-        fakeAccel.accZ = random(700, 1300) / 100.0f;
-        fakeAccel.gyrX = random(-25000, 25000) / 100.0f;
-        fakeAccel.gyrY = random(-25000, 25000) / 100.0f;
-        fakeAccel.gyrZ = random(-25000, 25000) / 100.0f;
-        fakeAccel.temp = random(2000, 3500) / 100.0f;
+        fakeAccel.accX = i * 0.15f;
+        fakeAccel.accY = -i * 0.07f;
+        fakeAccel.accZ = 9.81f + (i * 0.03f);
+        fakeAccel.gyrX = i * 0.10f;
+        fakeAccel.gyrY = -i * 0.05f;
+        fakeAccel.gyrZ = i * 0.02f;
+        fakeAccel.temp = 25.0f;
         fakeAccel.valid = true;
 
-        const double altitude = random(0, 30000) / 10.0;
-        dataStorage.saveFlightSample(flightTimeMs, altitude, fakeAccel);
-        flightTimeMs += fakeTimeStepMs;
+        dataStorage.saveFlightSample(fakeTimeMs, fakeState, fakeAltitude, fakeAccel);
     }
 
     dataStorage.flushPendingWrites();
-    Serial.println(F("[DataStorage] 20 amostras falsas salvas"));
+    Serial.println(F("[DataStorage] 20 pontos falsos salvos"));
 }
 
 void handleSerialCommand()
@@ -93,12 +85,18 @@ void handleSerialCommand()
     }
     else if (command == F("EEPROM_INFO"))
     {
+        Serial.print(F("[DataStorage] Backend: "));
+        Serial.println(dataStorage.isUsingFlightLogPartition() ? F("flightlog") : F("EEPROM/NVS"));
         Serial.print(F("[DataStorage] Registros: "));
         Serial.print(dataStorage.getRecordCount());
         Serial.print(F("/"));
         Serial.print(dataStorage.getMaxFlightDataPoints());
         Serial.print(F(" | bytes: "));
         Serial.print(dataStorage.getStorageSizeBytes());
+        Serial.print(F(" | amostra: "));
+        Serial.print(dataStorage.getSampleSizeBytes());
+        Serial.print(F(" | dados em: "));
+        Serial.print(dataStorage.getDataStartOffset());
         Serial.print(F(" | fator: 1/"));
         Serial.print(dataStorage.getDecimationFactor());
         Serial.print(F(" | proximo indice: "));
@@ -184,27 +182,11 @@ void setup()
         }
     }
 
-    // Inicialização de componentes não-críticos
-    gps.begin(9600);
-
-    bool sdOk = sdCard.begin();
-
-    if (!sdOk)
-    {
-        led.setColor(0, 0, 0); // Amarelo - houve falha
-        // TODO: Som de buzzer específico para indicar falha
-    }
-    else
-    {
-        led.setColor(0, 255, 0); // Verde - boot ok
-        // TODO: Som de buzzer específico para indicar sucesso
-    }
+    led.setColor(0, 255, 0); // Verde - boot ok
 
     delay(1000);
 
     // altimeter.resetBaseline();
-
-    dataLogger.begin();
 
     Serial.println(F("Sistema pronto!"));
 }
@@ -214,16 +196,13 @@ void loop()
 {
     handleSerialCommand();
     printSerialHeartbeat();
-    gps.update();
 
     // Leitura dos sensores a 20 Hz
     if (sensorsTimer.isReady())
     {
         const unsigned long now = millis();
-        const double pressure = altimeter.readPressure();
         const double altitude = altimeter.calculateAltitude();
         const AccelData accel = accelerometer.readAcceleration();
-        const GPSData gpsData = gps.getLatestData();
 
         float verticalVelocity = 0.0f;
 
@@ -255,7 +234,6 @@ void loop()
                                                ? 0
                                                : now - stateMachine.getFlightStartTime();
 
-        dataLogger.update(flightTimeMs, altitude, pressure, accel, gpsData, currentState);
         dataStorage.update(flightTimeMs, altitude, accel, currentState);
     }
 

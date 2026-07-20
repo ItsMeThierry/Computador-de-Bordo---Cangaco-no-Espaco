@@ -1,112 +1,142 @@
-# Backup na Flash do ESP32
+# Armazenamento na Flash do ESP32
 
-Este backup usa a Flash interna do ESP32 via EEPROM emulada/NVS. Não é uma EEPROM física dedicada.
+O projeto agora usa a Flash interna como armazenamento principal dos dados de voo. Não depende mais de cartão SD.
 
-## O que é salvo
+Por padrão, o firmware tenta usar a partição customizada `flightlog`. Se ela não existir, cai para EEPROM emulada/NVS.
 
-Cada ponto de voo salva:
+## Modos
 
-| Campo | Tipo | Bytes | Unidade salva | Resolução |
-|---|---:|---:|---|---:|
-| Tempo | `uint16_t` | 2 | centésimos de segundo | `0,01 s` |
-| Altitude barométrica | `uint16_t` | 2 | decímetros | `0,1 m` |
-| Aceleração X | `int16_t` | 2 | centésimos de m/s² | `0,01 m/s²` |
-| Aceleração Y | `int16_t` | 2 | centésimos de m/s² | `0,01 m/s²` |
-| Aceleração Z | `int16_t` | 2 | centésimos de m/s² | `0,01 m/s²` |
+| Modo | Quando usa | Bytes por ponto | Dados salvos |
+|---|---|---:|---|
+| V1 EEPROM/NVS | Sem partição `flightlog` ou flag desligada | 9 | tempo, estado, altitude, velocidade angular XYZ |
+| V2 `flightlog` | Partição `flightlog` disponível | 14 | V1 + aceleração XYZ |
 
-Total por ponto:
+A flag fica em `src/config/Constants.h`:
 
-```txt
-10 bytes
+```cpp
+constexpr bool BACKUP_USE_FLIGHTLOG_PARTITION = true;
 ```
 
-O cabeçalho ocupa:
+## Formato dos dados
+
+| Campo | Bits | Unidade salva | Resolução |
+|---|---:|---|---:|
+| Tempo | 16 | centésimos de segundo | `0,01 s` |
+| Estado | 3 | código do `FlightState` | `0..7` |
+| Altitude barométrica | 16 | decímetros | `0,1 m` |
+| Velocidade angular X | 12 | centésimos de rad/s | `0,01 rad/s` |
+| Velocidade angular Y | 12 | centésimos de rad/s | `0,01 rad/s` |
+| Velocidade angular Z | 12 | centésimos de rad/s | `0,01 rad/s` |
+| Aceleração X | 12 | passos de `0,05 m/s²` | `0,05 m/s²` |
+| Aceleração Y | 12 | passos de `0,05 m/s²` | `0,05 m/s²` |
+| Aceleração Z | 12 | passos de `0,05 m/s²` | `0,05 m/s²` |
+
+No V1, só os primeiros 71 bits são usados:
 
 ```txt
-16 bytes
+71 bits usados + 1 bit livre = 9 bytes
 ```
 
-Ele guarda assinatura, versão, quantidade de registros, fator de decimação, contador bruto e próximo índice de sobrescrita.
+No V2, usa os 3 eixos de aceleração:
 
-## Frequência de gravação
+```txt
+107 bits usados + 5 bits livres = 14 bytes
+```
 
-Na subida:
+## Capacidade
+
+Com a partição `flightlog` de 256 KB:
+
+```txt
+262144 bytes totais
+- 4096 bytes de metadados
+= 258048 bytes para dados
+```
+
+Como cada ponto V2 ocupa 14 bytes:
+
+```txt
+258048 / 14 = 18432 pontos
+```
+
+Tempo aproximado se gravasse tudo em uma taxa fixa:
+
+```txt
+50 Hz: 18432 / 50 = 368,64 s = 6 min 8 s
+20 Hz: 18432 / 20 = 921,60 s = 15 min 21 s
+10 Hz: 18432 / 10 = 1843,20 s = 30 min 43 s
+```
+
+No fallback EEPROM/NVS, usando 11776 bytes detectados:
+
+```txt
+(11776 - 16) / 9 = 1306 pontos
+```
+
+## Frequência
+
+Do início da subida até terminar a região do apogeu:
+
+```txt
+50 Hz
+1 ponto a cada 20 ms
+```
+
+No código, isso inclui:
+
+```txt
+ASCENT
+ACTIVATE_SKIB_ONE
+```
+
+No restante do voo:
 
 ```txt
 20 Hz
 1 ponto a cada 50 ms
 ```
 
-Na recuperação:
+Estimativa para voo de 2 minutos, com apogeu por volta de 15 s:
 
 ```txt
-5 Hz
-1 ponto a cada 200 ms
+15 s * 50 Hz = 750 pontos
+105 s * 20 Hz = 2100 pontos
+total = 2850 pontos
 ```
 
-Não grava em `PRE_FLIGHT` nem em `LANDED`.
-
-As amostras são acumuladas na RAM da EEPROM emulada e o `EEPROM.commit()` é feito em lote a cada 20 amostras. Ao chegar em `LANDED`, ou ao usar comandos seriais como `EEPROM_READ` e `EEPROM_CLEAR`, qualquer lote pendente é gravado antes de continuar.
-
-## Capacidade
-
-A capacidade depende do espaço detectado na partição NVS. A fórmula é:
+Mesmo incluindo os 2 s de `ACTIVATE_SKIB_ONE` junto da região crítica:
 
 ```txt
-pontos = (bytes_disponiveis - 16) / 10
+17 s * 50 Hz = 850 pontos
+103 s * 20 Hz = 2060 pontos
+total = 2910 pontos
 ```
 
-No teste real da ESP32 conectada, a área detectada foi:
+Com 18432 pontos disponíveis no `flightlog`, sobra bastante margem.
 
-```txt
-11776 bytes
-```
+Não grava em `PRE_FLIGHT`. Ao entrar em `ASCENT`, limpa o log anterior e começa um voo novo. Ao chegar em `LANDED`, força gravação dos metadados pendentes.
 
-Então:
+## Sobrescrita espaçada
 
-```txt
-(11776 - 16) / 10 = 1176 pontos
-```
-
-Com 20 Hz constantes:
-
-```txt
-1176 / 20 = 58,8 s antes da primeira sobrescrita espaçada
-```
-
-## Lógica de sobrescrita espaçada
-
-O sistema primeiro preenche todos os espaços disponíveis:
+Primeiro ele preenche todos os espaços:
 
 ```txt
 0, 1, 2, 3, 4, 5...
 ```
 
-Quando enche, ele não compacta tudo de uma vez. Em vez disso, passa a sobrescrever posições espaçadas.
-
-Primeira rodada cheia:
+Quando enche, ele não compacta tudo em bloco. Ele passa a sobrescrever posições espaçadas começando do final para o início, para preservar o começo do voo por mais tempo:
 
 ```txt
-fator 2
-sobrescreve 1, 3, 5, 7...
+fator 2: sobrescreve ..., 7, 5, 3, 1
+fator 4: sobrescreve ..., 14, 10, 6, 2
+fator 8: sobrescreve ..., 28, 20, 12, 4
 ```
 
-Depois que termina essa rodada:
+Assim a amostragem efetiva vai diminuindo aos poucos, sem travar o loop fazendo uma compactação gigante.
 
-```txt
-fator 4
-sobrescreve 2, 6, 10, 14...
-```
+Na leitura, o CSV já sai ordenado por tempo.
 
-Depois:
-
-```txt
-fator 8, 16...
-```
-
-Isso reduz a amostragem efetiva aos poucos, mantendo uma visão geral do voo sem fazer uma compactação em bloco, que poderia travar ou atrasar o loop.
-
-## Limites dos campos
+## Limites
 
 Tempo:
 
@@ -121,65 +151,65 @@ Altitude:
 0,0 m até 6553,5 m
 ```
 
-Aceleração em cada eixo:
+Velocidade angular X, Y e Z:
 
 ```txt
--327,68 m/s² até +327,67 m/s²
-aprox. -33,4 g até +33,4 g
+-20,48 rad/s até +20,47 rad/s
+aprox. -1173 deg/s até +1173 deg/s
+```
+
+Aceleração X, Y e Z no V2:
+
+```txt
+-102,40 m/s² até +102,35 m/s²
+aprox. -10,4 g até +10,4 g
 ```
 
 Se algum valor passar do limite, ele é saturado no mínimo ou máximo.
 
-## Leitura dos dados
+## Comandos seriais
 
-O comando serial:
+Ver status:
+
+```txt
+EEPROM_INFO
+```
+
+Ler CSV:
 
 ```txt
 EEPROM_READ
 ```
 
-imprime CSV ordenado por tempo:
-
-```txt
-Timestamp,AltBaro,AccX,AccY,AccZ
-```
-
-Mesmo após a sobrescrita espaçada misturar a ordem física dos registros na Flash, a leitura carrega os pontos em RAM, ordena por `Timestamp` e imprime em ordem cronológica.
-
-O comando:
-
-```txt
-EEPROM_INFO
-```
-
-mostra quantidade de registros, capacidade, bytes usados, fator de decimação e próximo índice de sobrescrita.
-
-O comando:
+Limpar armazenamento:
 
 ```txt
 EEPROM_CLEAR
 ```
 
-zera o backup.
-
-## Teste de bancada
-
-Para testar sem depender da detecção de voo, use o comando serial:
+Preencher com 20 pontos falsos:
 
 ```txt
 EEPROM_FAKE_SAVE
 ```
 
-Ele grava 20 amostras artificiais diretamente no backup.
-
-Fluxo sugerido no Monitor Serial, em `115200` baud e com quebra de linha habilitada:
+CSV no V1:
 
 ```txt
-EEPROM_CLEAR
-EEPROM_INFO
-EEPROM_FAKE_SAVE
-EEPROM_INFO
-EEPROM_READ
+Timestamp,StateCode,State,AltBaro,AngVelX,AngVelY,AngVelZ
 ```
 
-Depois de `EEPROM_FAKE_SAVE`, o `EEPROM_INFO` deve mostrar 20 registros a mais, e o `EEPROM_READ` deve imprimir o CSV com essas amostras.
+CSV no V2:
+
+```txt
+Timestamp,StateCode,State,AltBaro,AngVelX,AngVelY,AngVelZ,AccX,AccY,AccZ
+```
+
+Se o particionamento customizado entrou certo, `EEPROM_INFO` deve mostrar:
+
+```txt
+[DataStorage] Backend: flightlog
+[DataStorage] Registros: 0/18432 | bytes: 262144 | amostra: 14 | dados em: 4096
+```
+
+Se aparecer `EEPROM/NVS`, o firmware caiu no fallback antigo.
