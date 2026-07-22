@@ -15,9 +15,10 @@ enum LoRaCommandRadioEnge_v4 : uint8_t {
     CMD_RESETAR_BASE_V4       = 0x28  // Zera baseline de altitude barométrica
 };
 
-// ID Padrão do Foguete (Slave) e Base (Master)
+// ID Padrão da Base (Master) e Foguete (Slave)
+constexpr uint16_t LORA_BASE_ID_V4         = 0; // ID 0 é a Estação Master de Solo
+constexpr uint16_t LORA_ROCKET_ID_V4       = 1; // ID 1 é o Foguete
 constexpr uint16_t LORA_DEST_BROADCAST_V4 = 0xFFFF;
-constexpr uint16_t LORA_ROCKET_ID_V4       = 1;
 constexpr uint8_t  LORA_APP_COMMAND_ID_V4  = 0x28; // Wrapper da Radioenge
 
 class LoRaRadioEnge_v4 {

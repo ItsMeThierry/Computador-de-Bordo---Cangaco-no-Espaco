@@ -137,7 +137,7 @@ private:
         }
     }
 
-    void _sendAutoTelemetry(double altitudeBaro, FlightState state) {
+    void _sendAutoTelemetry(double altitudeBaro, FlightState state, uint16_t destId = LORA_BASE_ID_V4) {
         uint8_t txBuffer[6];
         txBuffer[0] = CMD_TELEMETRIA_AUTO_V4;
         txBuffer[1] = static_cast<uint8_t>(state);
@@ -146,7 +146,7 @@ private:
         txBuffer[2] = (altInt >> 8) & 0xFF;
         txBuffer[3] = altInt & 0xFF;
 
-        _radio->sendPacket(LORA_DEST_BROADCAST_V4, txBuffer, 4);
+        _radio->sendPacket(destId, txBuffer, 4);
     }
 
     void _sendGPSData(uint16_t senderId) {
