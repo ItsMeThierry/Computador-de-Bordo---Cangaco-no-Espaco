@@ -91,6 +91,8 @@ private:
                 if (_stateMachine != nullptr) {
                     _stateMachine->forceState(FlightState::ASCENT);
                     Serial.println(F("[RF4_CMD] Foguete armado -> Forçado estado SUBIDA"));
+                    double alt = (_altimeter != nullptr) ? _altimeter->calculateAltitude() : 0.0;
+                    _sendAutoTelemetry(alt, FlightState::ASCENT);
                 }
                 break;
             }
@@ -99,6 +101,8 @@ private:
                 if (_altimeter != nullptr) {
                     _altimeter->resetBaseline();
                     Serial.println(F("[RF4_CMD] Baseline do altímetro resetada"));
+                    FlightState st = (_stateMachine != nullptr) ? _stateMachine->getCurrentState() : FlightState::PRE_FLIGHT;
+                    _sendAutoTelemetry(0.0, st);
                 }
                 break;
             }
