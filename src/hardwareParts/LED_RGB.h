@@ -2,16 +2,12 @@
 #define LED_RGB_H
 
 #include <Arduino.h>
-
-static constexpr int LED_RGB_LEDC_RESOLUTION = 8;  // 8 bits
+#include "../../config/Constants.h"
 
 class LED_RGB {
 public:
-    LED_RGB(int pinRed, int pinGreen, int pinBlue)
-        : _pinR(pinRed), 
-          _pinG(pinGreen),
-          _pinB(pinBlue),
-          _blinkInterval(0),
+    LED_RGB()
+        : _blinkInterval(0),
           _lastToggle(0),
           _blinkEnabled(false),
           _state(false),
@@ -23,9 +19,9 @@ public:
     * @brief Realiza a configuração inicial do LED RGB.
     */
     void begin(){
-        ledcAttach(_pinR, 5000, LED_RGB_LEDC_RESOLUTION);
-        ledcAttach(_pinG, 5000, LED_RGB_LEDC_RESOLUTION);
-        ledcAttach(_pinB, 5000, LED_RGB_LEDC_RESOLUTION);
+        ledcAttach(PIN_LED_RED, 5000, LED_RGB_LEDC_RESOLUTION);
+        ledcAttach(PIN_LED_GREEN, 5000, LED_RGB_LEDC_RESOLUTION);
+        ledcAttach(PIN_LED_BLUE, 5000, LED_RGB_LEDC_RESOLUTION);
     }
 
     /**
@@ -41,9 +37,9 @@ public:
         _targetB = blue;
 
         if (!_blinkEnabled && !_forceMode) {
-            _writePWM(_pinR, _targetR);
-            _writePWM(_pinG, _targetG);
-            _writePWM(_pinB, _targetB);
+            _writePWM(PIN_LED_RED, _targetR);
+            _writePWM(PIN_LED_GREEN, _targetG);
+            _writePWM(PIN_LED_BLUE, _targetB);
             _state = true;
         }
     }
@@ -69,9 +65,9 @@ public:
             _lastToggle = currentMillis;
             _state = !_state; 
 
-            _writePWM(_pinR, (_state) ? _targetR : 0);
-            _writePWM(_pinG, (_state) ? _targetG : 0);
-            _writePWM(_pinB, (_state) ? _targetB : 0);
+            _writePWM(PIN_LED_RED, (_state) ? _targetR : 0);
+            _writePWM(PIN_LED_GREEN, (_state) ? _targetG : 0);
+            _writePWM(PIN_LED_BLUE, (_state) ? _targetB : 0);
         }
     }
 
@@ -84,9 +80,9 @@ public:
         _blinkEnabled = enabled;
 
         if (!enabled && !_forceMode) {
-            _writePWM(_pinR, _targetR);
-            _writePWM(_pinG, _targetG);
-            _writePWM(_pinB, _targetB);
+            _writePWM(PIN_LED_RED, _targetR);
+            _writePWM(PIN_LED_GREEN, _targetG);
+            _writePWM(PIN_LED_BLUE, _targetB);
             _state = true;
         }
     }
@@ -108,16 +104,14 @@ public:
             _forcedG = g;
             _forcedB = b;
 
-            _writePWM(_pinR, _forcedR);
-            _writePWM(_pinG, _forcedG);
-            _writePWM(_pinB, _forcedB);
+            _writePWM(PIN_LED_RED, _forcedR);
+            _writePWM(PIN_LED_GREEN, _forcedG);
+            _writePWM(PIN_LED_BLUE, _forcedB);
             _state = true;
         }
     }
 
 private:
-    int _pinR, _pinG, _pinB;
-    int _channelR, _channelG, _channelB; // TODO: Talvez remover variáveis (Core 3.x não usa channel)
     unsigned long _blinkInterval;
     unsigned long _lastToggle;
     bool _blinkEnabled;

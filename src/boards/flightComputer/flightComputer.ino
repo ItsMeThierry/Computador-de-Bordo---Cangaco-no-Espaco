@@ -2,23 +2,27 @@
 #include "../../hardwareParts/Altimeter.h"
 #include "../../hardwareParts/Accelerometer.h"
 #include "../../hardwareParts/Buzzer.h"
-// #include "../../hardwareParts/LoRaRadio.h"
+#include "../../hardwareParts/LoRaRadio.h"
 #include "../../hardwareParts/LED_RGB.h"
+#include "../../hardwareParts/GPS.h"
 
 #include "../../logic/DataStorage.h"
+#include "../../logic/Telemetry.h"
 
 #include "../../utils/Timer.h"
 
 // Instanciando os objetos das classes no Hardware
 Altimeter altimeter;
 Accelerometer accelerometer;
-Buzzer buzzer(PIN_BUZZER);
-// LoRaRadio lora(PIN_LORA_RX, PIN_LORA_TX, PIN_LORA_M0, PIN_LORA_M1, PIN_LORA_AUX);
-LED_RGB led(PIN_LED_RED, PIN_LED_GREEN, PIN_LED_BLUE);
+Buzzer buzzer;
+LED_RGB led;
+LoRaRadio lora;
+GPSSensor gps;
 
+// Armazenamento e Estado
 DataStorage dataStorage;
-
 FlightStateMachine stateMachine;
+Telemetry telemetry(&lora, &altimeter, &gps, &stateMachine, &dataStorage);
 
 Timer sensorsTimer(SENSOR_READ_INTERVAL_MS);
 
@@ -51,8 +55,6 @@ void setup()
     led.setColor(0, 0, 255);
     led.setBlinkEnabled(false);
 
-    delay(3000);
-
     // Inicializar buzzer (configura canal LEDC)
     buzzer.begin();
 
@@ -84,6 +86,7 @@ void setup()
 
     // Inicialização de componentes não-críticos
     gps.begin(9600);
+    telemetry.begin();
 
     led.setColor(0, 255, 0); // Verde - boot ok
     // TODO: Som de buzzer específico para indicar sucesso
@@ -98,7 +101,6 @@ void setup()
 // ===== LOOP PRINCIPAL =====
 void loop()
 {
-
     // Leitura dos sensores a 20 Hz
     if (sensorsTimer.isReady())
     {
@@ -110,11 +112,9 @@ void loop()
         // Calcula a velocidade com base na altitude
         float verticalVelocity = 0.0f;
 
-        if (hasLastAltitude)
-        {
+        if (hasLastAltitude){
             const unsigned long dtMs = now - lastAltitudeReadMs;
-            if (dtMs > 0)
-            {
+            if (dtMs > 0){
                 verticalVelocity = static_cast<float>((altitude - lastAltitude) / (dtMs / 1000.0));
             }
         }
@@ -131,8 +131,7 @@ void loop()
         stateMachine.update(altitude, verticalVelocity, selectedAccel);
         const FlightState currentState = stateMachine.getCurrentState();
 
-        if (oldState == FlightState::PRE_FLIGHT && currentState == FlightState::ASCENT)
-        {
+        if (oldState == FlightState::PRE_FLIGHT && currentState == FlightState::ASCENT) {
             dataStorage.clearFlightLog();
         }
 
@@ -141,6 +140,7 @@ void loop()
                                                : now - stateMachine.getFlightStartTime();
 
         dataStorage.update(flightTimeMs, altitude, accel, currentState);
+        telemetry.update(flightTimeMs, altitude, currentState);
     }
 
     led.update();

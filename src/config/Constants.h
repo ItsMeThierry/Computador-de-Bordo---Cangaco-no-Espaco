@@ -68,6 +68,8 @@ constexpr unsigned long LED_BLINK_RECOVERY_ONE_MS      = 1500;
 constexpr unsigned long LED_BLINK_RECOVERY_TWO_MS      = 1500;
 constexpr unsigned long LED_BLINK_LANDED_MS            = 2000;
 
+static constexpr int LED_RGB_LEDC_RESOLUTION = 8;  // 8 bits
+
 // ========== FEEDBACK: BUZZER POR ESTADO ==========
 // Frequências (Hz) — 0 = desativado
 constexpr unsigned int BEEP_FREQ_PRE_FLIGHT     = 1500;
@@ -81,6 +83,10 @@ constexpr unsigned int BEEP_FREQ_LANDED         = 0;     // Sem buzzer
 constexpr unsigned long BEEP_PERIOD_PRE_FLIGHT_MS = 3000;
 constexpr unsigned long BEEP_PERIOD_ASCENT_MS     = 1000;
 constexpr unsigned long BEEP_DURATION_MS          = 400;
+
+// Canal LEDC dedicado ao buzzer (canais 0-2 reservados para LED RGB)
+static constexpr int BUZZER_LEDC_CHANNEL = 3;
+static constexpr int BUZZER_LEDC_RESOLUTION = 10;  // 10 bits
 
 // ========== PARÂMETROS DE ARMAZENAMENTO ==========
 // Backup compacto na EEPROM/flash do ESP32.
@@ -102,6 +108,9 @@ constexpr float ALTITUDE_SCALE_FACTOR      = 10.0f;  // metros -> decímetros
 constexpr float ANGULAR_VELOCITY_SCALE_FACTOR = 100.0f; // rad/s -> centésimos de rad/s
 constexpr float ACCEL_BACKUP_SCALE_FACTOR  = 20.0f;  // m/s² -> passos de 0,05 m/s²
 
+// Tamanho máximo para o nome do arquivo LOG_XX.CSV no cartão SD
+static constexpr int SD_MAX_LOG_FILES = 100;  // LOG_00 a LOG_99
+
 // ========== COMUNICAÇÃO SERIAL ==========
 constexpr unsigned long GPS_UART_BAUD  = 9600;   // Baudrate UART GPS NEO-6M
 constexpr unsigned long LORA_UART_BAUD = 9600;   // Baudrate UART E220-900T22D
@@ -120,23 +129,28 @@ constexpr int PIN_LED_RED   = 25;
 constexpr int PIN_LED_GREEN = 26;
 constexpr int PIN_LED_BLUE  = 27;
 
-// I2C (BMP280 + MPU6050)
+// I2C (BME280 + MPU6050)
 constexpr int PIN_I2C_SDA = 21;
 constexpr int PIN_I2C_SCL = 22;
 
-// GPS (UART2)
-constexpr int PIN_GPS_RX = 36; // TODO: Rever pino do GPS
-constexpr int PIN_GPS_TX = 15; // TODO: Rever pino do GPS
+constexpr int BME_ADDRESS = 0x76;
 
-// LoRa E220 (UART1)
+// GPS (UART2)
+constexpr int PIN_GPS_RX = 36; // TX do módulo → RX do ESP
+constexpr int PIN_GPS_TX = 15; // RX do módulo → TX do ESP
+
+constexpr unsigned long GPS_UART = 1;
+
+// LoRa Common
 constexpr int PIN_LORA_RX  = 16;  // TX do módulo → RX do ESP
 constexpr int PIN_LORA_TX  = 17;  // RX do módulo → TX do ESP
+
+// LoRa E220 (UART1)
 constexpr int PIN_LORA_M0  = 32;
 constexpr int PIN_LORA_M1  = 33;
 constexpr int PIN_LORA_AUX = 34;
 
-// ========== COMPATIBILIDADE LEGADA ==========
-// Manter para módulos que ainda usam o nome antigo
-constexpr int PIN_SKIB = PIN_SKIB_1;
+// LoRa RadioEnge (UART2)
+constexpr unsigned long LORA_UART = 2;
 
 #endif

@@ -6,15 +6,10 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_BMP280.h> 
-
-#define BMP280_SDA_PIN 21
-#define BMP280_SCL_PIN 22
-
-#define BMP280_ADDRESS 0x76
+#include "../../config/Constants.h"
 
 class Altimeter {
 public:
-
     Altimeter() 
         : _connected(false), 
           _baseline(1013.25) {}
@@ -25,8 +20,8 @@ public:
     * @return true se o sensor foi inicializado e configurado com sucesso, false caso contrário (ex: sensor não encontrado ou falha na comunicação).
     */
     bool begin() {
-        Wire.begin(BMP280_SDA_PIN, BMP280_SCL_PIN);
-        _connected = _sensor.begin(BMP280_ADDRESS); 
+        Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+        _connected = _sensor.begin(BME_ADDRESS); 
         
         if (_connected) {
             _sensor.setSampling(Adafruit_BMP280::MODE_NORMAL,     

@@ -2,17 +2,12 @@
 #define BUZZER_H
 
 #include <Arduino.h>
-
-// Canal LEDC dedicado ao buzzer (canais 0-2 reservados para LED RGB)
-static constexpr int BUZZER_LEDC_CHANNEL = 3;
-static constexpr int BUZZER_LEDC_RESOLUTION = 10;  // 10 bits
+#include "../../config/Constants.h"
 
 class Buzzer {
 public:
-    Buzzer(int pin)
-        : _pin(pin),
-          _channel(BUZZER_LEDC_CHANNEL),
-          _beepPeriod(0),
+    Buzzer()
+        : _beepPeriod(0),
           _beepDuration(0),
           _beepFreq(0),
           _lastBeepStart(0),
@@ -24,7 +19,7 @@ public:
     * @brief Configura canal LEDC e anexa o pino do buzzer.
     */
     void begin() {
-        ledcAttach(_pin, 2000, BUZZER_LEDC_RESOLUTION);
+        ledcAttach(PIN_BUZZER, 2000, BUZZER_LEDC_RESOLUTION);
         _stopTone();  // Garante buzzer desligado ao iniciar
     }
 
@@ -130,8 +125,6 @@ public:
     }
 
 private:
-    int _pin;
-    int _channel; // TODO: Talvez remover variável (Core 3.x não usa channel)
     unsigned long _beepPeriod;      // Intervalo entre beeps (ms)
     unsigned long _beepDuration;    // Duração de cada beep (ms)
     unsigned int _beepFreq;         // Frequência do beep (Hz)
@@ -146,14 +139,14 @@ private:
     * @param freq  Frequência do som
     */
     void _startTone(unsigned int freq) {
-        ledcWriteTone(_pin, freq);
+        ledcWriteTone(PIN_BUZZER, freq);
     }
 
     /**
     * @brief Para o tom — duty cycle zero.
     */
     void _stopTone() {
-        ledcWriteTone(_pin, 0);
+        ledcWriteTone(PIN_BUZZER, 0);
     }
 };
 

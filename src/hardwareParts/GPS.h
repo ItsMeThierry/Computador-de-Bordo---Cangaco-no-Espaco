@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <TinyGPS++.h>
 #include <HardwareSerial.h>
+#include "../../config/Constants.h"
 
 /// @brief Estrutura de dados para o GPS.
 struct GPSData {
@@ -17,10 +18,8 @@ struct GPSData {
 
 class GPSSensor {
 public:
-    GPSSensor(int rxPin, int txPin)
-        : _rxPin(rxPin),
-          _txPin(txPin),
-          _gpsSerial(1),
+    GPSSensor()
+        : _gpsSerial(GPS_UART),
           _fixQualityGPGGA(_gps, "GPGGA", 6),
           _fixQualityGNGGA(_gps, "GNGGA", 6),
           _lastValidTime(0),
@@ -40,7 +39,7 @@ public:
     * @param baudeRate  Bauderate serial do GPS. DEFAULT = 9600.
     */
     void begin(unsigned long baudRate = 9600) {
-        _gpsSerial.begin(baudRate, SERIAL_8N1, _rxPin, _txPin);
+        _gpsSerial.begin(baudRate, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
         _latestData.latitude = 0.0;
         _latestData.longitude = 0.0;
@@ -115,8 +114,6 @@ public:
     }
 
 private:
-    int _rxPin;
-    int _txPin;
     HardwareSerial _gpsSerial;
     TinyGPSPlus _gps;
     TinyGPSCustom _fixQualityGPGGA;
