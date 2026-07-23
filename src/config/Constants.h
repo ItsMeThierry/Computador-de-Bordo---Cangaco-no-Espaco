@@ -111,8 +111,8 @@ constexpr unsigned int GPS_UPDATE_RATE_HZ = 5;   // Taxa de atualização GPS (H
 
 // ========== PINAGEM (ESP32 DevKit V1) ==========
 // SKIB
-constexpr int PIN_SKIB_1   = 15;   // SKIB primário (paraquedas drogue)
-constexpr int PIN_SKIB_2   = 14;  // SKIB secundário (paraquedas principal)
+constexpr int PIN_SKIB_DROGUE   = 15;   // SKIB primário (paraquedas drogue)
+constexpr int PIN_SKIB_PARACHUTE   = 14;  // SKIB secundário (paraquedas principal)
 
 // Feedback
 constexpr int PIN_BUZZER    = 13;
